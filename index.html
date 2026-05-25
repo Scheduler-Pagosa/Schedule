@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Day Planner">
+<meta name="theme-color" content="#0f1117">
+<title>Day Planner</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.14.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --bg:#0f1117;--surface:#171923;--surface2:#1e2230;--surface3:#252a3b;
+  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.13);
+  --text:#e8eaf0;--text2:#8a91a8;--text3:#4a5068;
+  --green:#4ade80;--green-dim:rgba(74,222,128,.12);--green-glow:rgba(74,222,128,.22);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,.14);--amber-txt:#fcd34d;
+  --red:#ef4444;--red-dim:rgba(239,68,68,.12);
+  --blue:#60a5fa;--blue-dim:rgba(96,165,250,.12);
+  --radius:10px;--radius-sm:7px;--radius-xs:5px;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
+input,button,select,textarea{font-family:var(--font);-webkit-appearance:none;appearance:none}
+
+/* ── Config ── */
+.cfg{display:none;position:fixed;inset:0;background:var(--bg);z-index:999;align-items:center;justify-content:center;padding:1.5rem}
+.cfg.on{display:flex}
+.cfg-card{background:var(--surface);border:.5px solid var(--border2);border-radius:var(--radius);padding:2rem;width:100%;max-width:420px}
+.cfg-card h2{font-size:18px;font-weight:600;margin-bottom:6px}
+.cfg-card p{font-size:13px;color:var(--text2);margin-bottom:1.25rem;line-height:1.6}
+.cfg-lbl{font-size:11px;font-weight:500;color:var(--text2);display:block;margin-bottom:4px;margin-top:12px}
+.cfg-inp{width:100%;padding:9px 12px;border:.5px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;background:rgba(255,255,255,.04);color:var(--text)}
+.cfg-inp:focus{outline:none;border-color:rgba(74,222,128,.5)}
+.cfg-btn{width:100%;margin-top:1.25rem;padding:11px;background:var(--green);color:#021a0a;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer}
+.cfg-note{font-size:11px;color:var(--text3);margin-top:10px;line-height:1.5}
+
+/* ── App shell ── */
+.app{display:none;height:100vh;flex-direction:column}
+.app.on{display:flex}
+
+/* ── Topbar ── */
+.topbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surface);border-bottom:.5px solid var(--border);flex-shrink:0;min-height:46px}
+.app-logo{font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.2px;flex-shrink:0}
+.date-nav{display:flex;align-items:center;gap:2px;margin-left:8px}
+.arr{background:none;border:none;color:var(--text2);font-size:18px;padding:3px 5px;cursor:pointer;border-radius:6px;display:flex;align-items:center;transition:color .15s}
+.arr:hover{color:var(--text);background:rgba(255,255,255,.06)}
+#ddisp{font-size:12px;font-weight:500;color:var(--text);min-width:168px;text-align:center;padding:0 4px}
+.clock-el{font-size:11px;color:var(--text3);flex-shrink:0;font-variant-numeric:tabular-nums}
+.sync-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-left:auto;transition:background .3s}
+.sync-dot.ok{background:#22c55e}.sync-dot.err{background:var(--red)}.sync-dot.busy{background:var(--amber);animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── Content ── */
+.content{display:flex;flex:1;overflow:hidden}
+
+/* ── Sidebar ── */
+.sidebar{width:260px;background:var(--surface);border-right:.5px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;padding:10px 8px}
+@media(max-width:680px){.sidebar{display:none}}
+.sb-lbl{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;padding:0 2px}
+.sb-inner{flex:1;overflow:hidden;position:relative}
+.sb-blk{border-radius:var(--radius-sm);padding:7px 9px;border-left:3px solid transparent;font-size:12px}
+.sb-blktime{font-size:10px;opacity:.6;margin-bottom:1px}
+.sb-workwrap{border-radius:var(--radius-sm);padding:7px 9px;border-left:3px solid transparent}
+.sb-appt{border-radius:var(--radius-xs);padding:4px 8px;margin:3px 0 3px 10px;font-size:11px;display:flex;justify-content:space-between;align-items:flex-start;border-left:2px solid transparent}
+.add-appt-sb{width:calc(100% - 10px);margin-left:10px;margin-top:4px;border:.5px dashed;border-radius:var(--radius-xs);padding:3px 7px;font-size:10px;background:none;cursor:pointer;text-align:left;opacity:.7}
+.now-wrap{position:relative}
+.now-bar{position:absolute;left:0;right:0;height:1.5px;background:var(--red);z-index:10;pointer-events:none}
+.now-bar::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--red);position:absolute;left:-3.5px;top:-2.75px}
+.now-tag{position:absolute;left:8px;font-size:8px;font-weight:700;color:var(--red);white-space:nowrap;background:transparent;pointer-events:none}
+
+/* ── Main ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.tabs{display:flex;padding:0 10px;background:var(--surface);border-bottom:.5px solid var(--border);flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{display:flex;align-items:center;gap:4px;padding:9px 9px;border:none;border-bottom:2px solid transparent;background:none;font-size:11px;cursor:pointer;color:var(--text2);white-space:nowrap;flex-shrink:0;transition:color .15s}
+.tab i{font-size:14px}
+.tab.on{color:var(--text);border-bottom-color:var(--green);font-weight:500}
+.tab:hover:not(.on){color:rgba(232,234,240,.75)}
+.panel{display:none;flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.panel.on{display:block}
+.panel-flex{display:none;flex:1;overflow:hidden}
+.panel-flex.on{display:flex}
+
+/* ── Add row ── */
+.add-row{display:flex;gap:5px;margin-bottom:10px}
+.add-inp{flex:1;padding:8px 11px;border:.5px solid var(--border2);border-radius:var(--radius);font-size:13px;background:rgba(255,255,255,.04);color:var(--text)}
+.add-inp::placeholder{color:var(--text3)}
+.add-inp:focus{outline:none;border-color:rgba(74,222,128,.4)}
+.add-btn{padding:8px 13px;border:none;border-radius:var(--radius);background:var(--green-dim);color:var(--green);font-size:12px;font-weight:600;cursor:pointer}
+.add-btn:hover{background:var(--green-glow)}
+.empty{font-size:13px;color:var(--text2);text-align:center;padding:2rem 0}
+
+/* ── Task cards ── */
+.tcard{border-radius:var(--radius);margin-bottom:4px;border:.5px solid var(--border);background:var(--surface2);overflow:hidden}
+.tcard.drag-over{border-color:var(--green);border-style:dashed}
+.tcard.dragging{opacity:.3}
+.trow{display:flex;align-items:center;gap:6px;padding:8px 10px}
+.tbar{width:3px;align-self:stretch;flex-shrink:0;border-radius:2px}
+.tcb{width:15px;height:15px;flex-shrink:0;accent-color:var(--green);cursor:pointer}
+.tname{flex:1;color:var(--text);border:none;background:none;font-size:13px;outline:none}
+.tname.done{text-decoration:line-through;opacity:.35}
+.tname:focus{background:rgba(255,255,255,.05);border-radius:3px;padding:0 3px}
+.tacts{display:flex;gap:2px;align-items:center;flex-shrink:0}
+.tib{border:none;background:none;cursor:pointer;color:var(--text3);font-size:13px;padding:2px;line-height:1;border-radius:4px}
+.tib:hover{color:var(--text);background:rgba(255,255,255,.07)}
+.drag-h{color:var(--text3);cursor:grab;font-size:14px;flex-shrink:0}
+.rbadge{font-size:9px;background:var(--amber-dim);color:var(--amber-txt);padding:1px 5px;border-radius:3px;border:.5px solid rgba(245,158,11,.3);white-space:nowrap}
+.tnote-area{padding:0 10px 8px 36px}
+.tnote-inp{width:100%;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:rgba(255,255,255,.03);color:var(--text);font-size:12px;padding:5px 8px;resize:none;outline:none;min-height:34px;line-height:1.5}
+.tnote-inp:focus{border-color:rgba(74,222,128,.35)}
+
+/* ── Appointments ── */
+.appt-add-btn{width:100%;padding:8px 12px;border:.5px solid rgba(245,158,11,.25);border-radius:var(--radius);background:var(--amber-dim);color:var(--amber-txt);font-size:12px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.appt-add-btn:hover{background:rgba(245,158,11,.22)}
+.appt-card{border-radius:var(--radius);margin-bottom:4px;background:rgba(245,158,11,.09);border:.5px solid rgba(245,158,11,.18);padding:9px 11px;display:flex;justify-content:space-between;align-items:flex-start}
+.appt-info{flex:1}
+.appt-title{font-size:13px;font-weight:500;color:var(--amber-txt)}
+.appt-time{font-size:10px;color:rgba(252,211,77,.55);margin-top:2px}
+.appt-blk{font-size:10px;color:rgba(252,211,77,.4);margin-top:1px}
+.appt-note{font-size:10px;color:rgba(252,211,77,.4);font-style:italic;margin-top:2px}
+.appt-acts{display:flex;gap:2px;flex-shrink:0}
+.appt-form{background:rgba(245,158,11,.07);border:.5px solid rgba(245,158,11,.22);border-radius:var(--radius);padding:12px;margin-bottom:10px}
+.appt-form h4{font-size:12px;font-weight:500;color:var(--amber-txt);margin-bottom:9px}
+.af-inp{width:100%;padding:7px 10px;border:.5px solid rgba(245,158,11,.22);border-radius:var(--radius-sm);font-size:12px;background:rgba(245,158,11,.06);color:var(--amber-txt);margin-bottom:6px}
+.af-inp:focus{outline:none;border-color:rgba(245,158,11,.5)}
+.af-inp::placeholder{color:rgba(252,211,77,.3)}
+.af-row{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+.af-row span{font-size:11px;color:rgba(252,211,77,.35)}
+.af-btns{display:flex;gap:6px;margin-top:8px}
+.af-save{flex:1;padding:8px;border:none;border-radius:var(--radius-sm);background:rgba(245,158,11,.22);color:var(--amber-txt);font-size:12px;cursor:pointer;font-weight:500}
+.af-save:hover{background:rgba(245,158,11,.32)}
+.af-cancel{padding:8px 12px;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:none;color:var(--text2);font-size:12px;cursor:pointer}
+
+/* ── Day plan ── */
+.plan-wrap{display:flex;flex:1;overflow:hidden;position:relative}
+.plan-tl{width:48px;flex-shrink:0;position:relative;border-right:.5px solid rgba(255,255,255,.08);overflow:hidden}
+.plan-tick{position:absolute;right:4px;font-size:8px;color:var(--text3);transform:translateY(-50%);white-space:nowrap}
+.plan-hline{position:absolute;left:0;right:0;height:.5px;background:rgba(255,255,255,.05)}
+.plan-scroll{flex:1;overflow:hidden;position:relative}#plan-view{position:absolute;inset:0;padding:0 8px 0 0}
+.now-row{display:flex;align-items:center;margin:4px 0}
+.now-row-time{font-size:9px;font-weight:700;color:var(--red);margin-right:3px;flex-shrink:0}
+.now-row-dot{width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0}
+.now-row-line{flex:1;height:1.5px;background:var(--red);border-radius:1px}
+.pblk{border-radius:var(--radius-sm);padding:7px 10px;margin-bottom:3px;font-size:12px;border-left:3px solid transparent}
+.pwork{border-radius:var(--radius);padding:9px 11px;margin-bottom:4px;border-left:3px solid transparent}
+.pappt{border-radius:var(--radius-sm);padding:5px 9px;margin:3px 0 3px 14px;font-size:12px;border-left:3px solid transparent;display:flex;justify-content:space-between;align-items:flex-start}
+.ptask{border-radius:var(--radius-sm);padding:6px 9px;margin:3px 0 3px 14px;font-size:12px;background:rgba(255,255,255,.03);border:.5px solid var(--border);border-left:3px solid transparent;display:flex;justify-content:space-between;align-items:center;cursor:grab}
+.ptask.dragging{opacity:.3}
+.ptask.drag-over-plan{border-color:var(--green);border-style:dashed}
+.pfree{border-radius:var(--radius-xs);padding:4px 9px;margin:3px 0 3px 14px;font-size:10px;color:var(--text3)}
+.pstime{font-size:10px;color:var(--text3);white-space:nowrap;margin-left:5px;flex-shrink:0}
+
+/* ── Calendar ── */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cal-nav button{background:none;border:.5px solid var(--border2);border-radius:var(--radius-sm);padding:5px 11px;cursor:pointer;font-size:12px;color:var(--text)}
+.cal-nav button:hover{background:rgba(255,255,255,.06)}
+.cal-mlbl{font-size:14px;font-weight:500}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-hdr{text-align:center;font-size:9px;font-weight:600;color:var(--text3);padding:3px 0;text-transform:uppercase}
+.cal-day{min-height:62px;border:.5px solid var(--border);border-radius:var(--radius-sm);padding:4px;background:var(--surface2);cursor:pointer;position:relative}
+.cal-day:hover{background:var(--surface3)}
+.cal-day.ct{border-color:rgba(74,222,128,.45);border-width:1.5px}
+.cal-day.csel{background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.3)}
+.cal-day.cwknd{background:rgba(255,255,255,.01)}
+.cal-day.cbo{background:rgba(130,80,255,.07)}
+.cal-day.cother{opacity:.2}
+.cal-dn{font-size:10px;font-weight:500;color:var(--text2);margin-bottom:3px}
+.cal-day.ct .cal-dn{color:var(--green);font-weight:700}
+.cal-day.csel .cal-dn{color:var(--green)}
+.cal-dots{display:flex;gap:2px;flex-wrap:wrap}
+.cal-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.cal-blklbl{font-size:8px;border-radius:2px;padding:1px 3px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.cal-info-bar{font-size:11px;color:var(--text2);background:var(--surface2);padding:6px 10px;border-radius:var(--radius-sm);margin-top:10px;border:.5px solid var(--border)}
+
+/* ── Settings ── */
+.scard{border:.5px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:10px;background:var(--surface2)}
+.scard h4{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:10px;display:flex;align-items:center;gap:6px;justify-content:space-between}
+.srow{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:12px}
+.srow label{flex:1;color:var(--text2)}
+.srow input[type=time]{background:rgba(255,255,255,.05);border:.5px solid var(--border2);border-radius:6px;padding:3px 7px;font-size:11px;color:var(--text)}
+.srow input[type=color]{width:28px;height:22px;border:.5px solid var(--border2);border-radius:4px;cursor:pointer;padding:1px;background:none}
+.blk-item{display:flex;align-items:flex-start;gap:7px;padding:7px 9px;border-radius:var(--radius-sm);border:.5px solid var(--border);margin-bottom:4px;background:rgba(255,255,255,.02);cursor:pointer;transition:background .1s}
+.blk-item:hover{background:rgba(255,255,255,.04)}
+.blk-item.sel{border-color:rgba(74,222,128,.35)}
+.blk-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.blk-name{font-size:12px;font-weight:500;color:var(--text)}
+.blk-meta{font-size:10px;color:var(--text3);margin-top:1px}
+.day-pill-row{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px}
+.dp{padding:1px 5px;border-radius:8px;font-size:9px;border:.5px solid var(--border2);color:var(--text3);cursor:default;line-height:1.5}
+.dp.on{color:var(--text);background:rgba(255,255,255,.07);border-color:rgba(74,222,128,.35)}
+.wbadge{font-size:9px;background:var(--green-dim);color:var(--green);padding:1px 4px;border-radius:3px;border:.5px solid rgba(74,222,128,.3)}
+.pbadge{font-size:9px;background:rgba(96,165,250,.13);color:var(--blue);padding:1px 4px;border-radius:3px;border:.5px solid rgba(96,165,250,.3)}
+.cswatch{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0}
+.cswatch:hover,.cswatch.sel{border-color:var(--text)}
+.add-blk-dashed{width:100%;padding:7px;border:.5px dashed var(--border2);border-radius:var(--radius-sm);background:none;font-size:12px;color:var(--text2);cursor:pointer;text-align:center;margin-top:4px}
+.add-blk-dashed:hover{background:rgba(255,255,255,.03)}
+.bo-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:.5px solid var(--border);border-radius:var(--radius-sm);margin-bottom:4px;background:var(--surface2);font-size:12px}
+.sect-h{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:10px 0 5px}
+
+/* ── Off banner ── */
+.off-banner{border-radius:var(--radius);padding:2rem;text-align:center;background:var(--surface2);border:.5px solid var(--border);margin-top:1rem}
+.off-banner .oi{font-size:26px;margin-bottom:8px;color:var(--text3)}
+.off-banner h3{font-size:14px;font-weight:500;color:var(--text2)}
+.off-banner p{font-size:12px;color:var(--text3);margin-top:3px}
+
+/* ── Vac banner ── */
+.vac-banner{border-radius:var(--radius);padding:2rem;text-align:center;border-left:3px solid transparent}
+.vac-banner .vbig{font-size:26px;margin-bottom:8px}
+.vac-banner .vt{font-size:15px;font-weight:500}
+.vac-banner .vs{font-size:12px;opacity:.6;margin-top:4px}
+
+/* ── Modals ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;align-items:flex-end;justify-content:center}
+.modal-bg.open{display:flex}
+@media(min-width:480px){.modal-bg{align-items:center}}
+.modal{background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;padding:1.3rem;width:100%;max-width:450px;max-height:90vh;overflow-y:auto}
+@media(min-width:480px){.modal{border-radius:var(--radius)}}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:13px}
+.modal label{font-size:11px;color:var(--text2);display:block;margin-bottom:3px;margin-top:10px;font-weight:500}
+.modal input,.modal select,.modal textarea{width:100%;padding:8px 11px;border:.5px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;background:rgba(255,255,255,.04);color:var(--text)}
+.modal input:focus,.modal textarea:focus{outline:none;border-color:rgba(74,222,128,.45)}
+.modal textarea{resize:vertical;min-height:52px}
+.modal .day-pills-modal{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
+.modal .dp-m{padding:3px 7px;border-radius:10px;font-size:11px;border:.5px solid var(--border2);cursor:pointer;background:none;color:var(--text2);line-height:1.5}
+.modal .dp-m.on{background:rgba(74,222,128,.12);color:var(--text);border-color:rgba(74,222,128,.35)}
+.mbtns{display:flex;gap:6px;margin-top:14px}
+.mbtns button{flex:1;padding:10px;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:none;font-size:13px;color:var(--text);cursor:pointer}
+.mbtns .mpri{background:var(--green);color:#021a0a;border-color:var(--green);font-weight:600}
+.mbtns .mpri:hover{background:#5af08c}
+.mbtns button:not(.mpri):hover{background:rgba(255,255,255,.06)}
+
+/* ── Mobile ── */
+.bnav{display:none}
+@media(max-width:680px){
+  .bnav{display:flex;background:var(--surface);border-top:.5px solid var(--border);padding:8px 0 env(safe-area-inset-bottom,8px);flex-shrink:0}
+  .bn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:none;color:var(--text3);padding:4px 2px;cursor:pointer}
+  .bn.on{color:var(--green)}
+  .bn i{font-size:22px}
+  .bn span{font-size:9px;line-height:1.3}
+  .tabs{display:none}
+  .sidebar{display:none}
+}
+
+.ph-tl-wrap{display:none;flex:1;position:relative;overflow:hidden}
+.ph-tl-hcol{position:absolute;left:0;top:0;bottom:0;width:36px;pointer-events:none}
+.ph-tl-blks{position:absolute;left:40px;right:0;top:0;bottom:0}
+.ph-scroll{position:absolute;inset:0;overflow-y:auto;padding:10px}
+</style>
+</head>
+<body>
+
+<!-- CONFIG SCREEN -->
+<div class="cfg" id="cfg">
+  <div class="cfg-card">
+    <h2>Connect your database</h2>
+    <p>Paste your Supabase credentials. Only needed once — saved locally on this device.</p>
+    <label class="cfg-lbl">Supabase Project URL</label>
+    <input class="cfg-inp" id="cfg-url" type="url" placeholder="https://xxxx.supabase.co">
+    <label class="cfg-lbl">Supabase Anon Key</label>
+    <input class="cfg-inp" id="cfg-key" type="text" placeholder="eyJhbGci...">
+    <button class="cfg-btn" onclick="saveConfig()">Save &amp; Connect</button>
+    <p class="cfg-note">Find these in Supabase → Settings → General (URL) and API (anon key).</p>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="app-logo">Day Planner</div>
+    <div class="date-nav">
+      <button class="arr" onclick="chDay(-1)" aria-label="Previous day"><i class="ti ti-chevron-left"></i></button>
+      <span id="ddisp"></span>
+      <button class="arr" onclick="chDay(1)" aria-label="Next day"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <span class="clock-el" id="clk"></span>
+    <div id="syncdot" class="sync-dot"></div>
+  </div>
+
+  <!-- Content area -->
+  <div class="content">
+    <!-- Desktop sidebar -->
+    <div class="sidebar">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px">
+        <div class="sb-lbl" style="margin-bottom:0">Today's schedule</div>
+        <button id="tasks-toggle" onclick="toggleTasksInSchedule()" style="display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;border:.5px solid var(--border2);background:none;font-size:10px;cursor:pointer;color:var(--text2);transition:all .2s">
+          <i class="ti ti-list-check" style="font-size:12px"></i> Tasks
+        </button>
+      </div>
+      <div class="sb-inner" id="sb-inner"></div>
+    </div>
+
+    <!-- Main panel -->
+    <div class="main">
+      <div class="tabs">
+        <button class="tab on" onclick="swTab('work',this)"><i class="ti ti-briefcase"></i>Work</button>
+        <button class="tab" onclick="swTab('personal',this)"><i class="ti ti-home"></i>Personal</button>
+
+        <button class="tab" onclick="swTab('calendar',this)"><i class="ti ti-calendar-month"></i>Calendar</button>
+        <button class="tab" onclick="swTab('settings',this)"><i class="ti ti-settings"></i>Settings</button>
+      </div>
+
+      <div id="tab-work" class="panel on">
+        <div class="add-row">
+          <input class="add-inp" id="work-inp" type="text" placeholder="Add a work task…" onkeydown="if(event.key==='Enter')addTask('work')">
+          <button class="add-btn" onclick="addTask('work')">Add</button>
+        </div>
+        <div id="work-list"></div>
+      </div>
+
+      <div id="tab-personal" class="panel">
+        <div class="add-row">
+          <input class="add-inp" id="personal-inp" type="text" placeholder="Add a personal task…" onkeydown="if(event.key==='Enter')addTask('personal')">
+          <button class="add-btn" onclick="addTask('personal')">Add</button>
+        </div>
+        <div id="personal-list"></div>
+      </div>
+
+      <div id="tab-calendar" class="panel">
+        <div class="cal-nav">
+          <button onclick="calMo(-1)"><i class="ti ti-chevron-left"></i> Prev</button>
+          <span class="cal-mlbl" id="cal-lbl"></span>
+          <button onclick="calMo(1)">Next <i class="ti ti-chevron-right"></i></button>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="cal-info-bar"><i class="ti ti-info-circle" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>Colored dots = appointments. Purple-tinted = vacation/override days.</div>
+        <div id="bo-list" style="margin-top:10px"></div>
+      </div>
+
+      <div id="tab-settings" class="panel">
+        <div class="scard">
+          <h4>
+            <span><i class="ti ti-layout-list" style="font-size:13px"></i> Schedule blocks</span>
+            <div style="display:flex;gap:4px">
+              <button style="border:.5px solid var(--border2);border-radius:6px;background:none;font-size:10px;padding:2px 7px;cursor:pointer;color:var(--text2)" onclick="openAddBlk()"><i class="ti ti-plus"></i> Recurring</button>
+              <button style="border:.5px solid rgba(130,80,255,.4);border-radius:6px;background:none;font-size:10px;padding:2px 7px;cursor:pointer;color:#a78bfa" onclick="openAddOT()"><i class="ti ti-plus"></i> One-time</button>
+            </div>
+          </h4>
+          <div id="blk-list"></div>
+        </div>
+        <div class="scard">
+          <h4><i class="ti ti-palette" style="font-size:13px"></i> Block colors <span style="font-size:9px;font-weight:400;color:var(--text3)">select a block first</span></h4>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="swatches"></div>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:11px;color:var(--text3)">
+            <input type="color" id="custom-clr" style="width:20px;height:20px;border:none;border-radius:50%;padding:0;background:none;cursor:pointer"> Custom color
+          </label>
+          <div style="margin-top:10px;padding-top:10px;border-top:.5px solid var(--border)">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500">Task colors (when Tasks toggle is on)</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:11px;color:var(--text3);width:60px;flex-shrink:0">Work</span>
+              <div style="display:flex;gap:4px;flex-wrap:wrap" id="work-task-swatches"></div>
+              <input type="color" id="work-task-clr" style="width:20px;height:20px;border:none;border-radius:50%;padding:0;background:none;cursor:pointer" oninput="setWorkTaskColor(this.value)">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:11px;color:var(--text3);width:60px;flex-shrink:0">Personal</span>
+              <div style="display:flex;gap:4px;flex-wrap:wrap" id="personal-task-swatches"></div>
+              <input type="color" id="personal-task-clr" style="width:20px;height:20px;border:none;border-radius:50%;padding:0;background:none;cursor:pointer" oninput="setPersonalTaskColor(this.value)">
+            </div>
+          </div>
+        </div>
+        <div class="scard">
+          <h4><i class="ti ti-clock" style="font-size:13px"></i> Schedule times</h4>
+          <div id="time-rows"></div>
+        </div>
+        <div class="scard">
+          <h4><i class="ti ti-calendar-event" style="font-size:13px"></i> Appointments</h4>
+          <div style="margin-bottom:8px">
+            <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;font-weight:500">Date</label>
+            <input type="date" id="sa-date" style="width:100%;padding:7px 10px;border:.5px solid var(--border2);border-radius:var(--radius-sm);font-size:12px;background:rgba(255,255,255,.04);color:var(--text)">
+          </div>
+          <button class="appt-add-btn" style="margin-bottom:8px" onclick="openApptFormSettings()"><i class="ti ti-plus"></i>Add appointment</button>
+          <div id="settings-appts-list"></div>
+        </div>
+        <div class="scard">
+          <h4><i class="ti ti-tool" style="font-size:13px"></i> App</h4>
+          <button onclick="resetCfg()" style="width:100%;padding:9px;border:.5px solid rgba(239,68,68,.4);border-radius:var(--radius-sm);background:none;color:#f87171;font-size:12px;cursor:pointer">Disconnect / change database</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile timeline -->
+    <div class="ph-tl-wrap" id="ph-tl-wrap">
+      <div class="ph-tl-hcol" id="ph-hcol"></div>
+      <div class="ph-tl-blks" id="ph-blks"></div>
+    </div>
+  </div>
+
+  <!-- Mobile bottom nav -->
+  <div class="bnav">
+    <button class="bn on" onclick="phTab('today',this)"><i class="ti ti-calendar"></i><span>Today</span></button>
+    <button class="bn" onclick="phTab('work',this)"><i class="ti ti-briefcase"></i><span>Work</span></button>
+    <button class="bn" onclick="phTab('personal',this)"><i class="ti ti-home"></i><span>Personal</span></button>
+    <button class="bn" onclick="phTab('calendar',this)"><i class="ti ti-calendar-month"></i><span>Calendar</span></button>
+    <button class="bn" onclick="phTab('settings',this)"><i class="ti ti-settings"></i><span>Settings</span></button>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-bg" id="blk-modal">
+  <div class="modal">
+    <h3 id="blk-modal-h">Add schedule block</h3>
+    <label>Label</label><input id="bm-label" type="text" placeholder="e.g. Meditation">
+    <label>Type</label>
+    <select id="bm-type" style="width:100%;padding:7px 10px;border:.5px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;background:rgba(255,255,255,.04);color:var(--text)">
+      <option value="regular">Regular block</option>
+      <option value="work">Work block (accepts appointments &amp; tasks)</option>
+      <option value="personal">Personal block (auto-fills personal tasks)</option>
+    </select>
+    <label>Start time</label><input id="bm-time" type="time" value="07:00">
+    <label>End time <span style="font-size:10px;color:var(--text3)">(optional)</span></label><input id="bm-end" type="time">
+    <label>Color</label><input id="bm-clr" type="color" value="#5DCAA5">
+    <label>Repeats on</label>
+    <div class="day-pills-modal" id="bm-days"></div>
+    <div class="mbtns"><button onclick="closeModal('blk-modal')">Cancel</button><button class="mpri" onclick="saveBlk()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="eblk-modal">
+  <div class="modal">
+    <h3>Edit schedule block</h3>
+    <label>Label</label><input id="ebm-label" type="text">
+    <label>Type</label>
+    <select id="ebm-type" style="width:100%;padding:7px 10px;border:.5px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;background:rgba(255,255,255,.04);color:var(--text)">
+      <option value="regular">Regular block</option>
+      <option value="work">Work block</option>
+      <option value="personal">Personal block</option>
+    </select>
+    <label>Start time</label><input id="ebm-time" type="time">
+    <label>End time</label><input id="ebm-end" type="time">
+    <label>Color</label><input id="ebm-clr" type="color">
+    <label>Repeats on</label>
+    <div class="day-pills-modal" id="ebm-days"></div>
+    <div class="mbtns"><button onclick="closeModal('eblk-modal')">Cancel</button><button class="mpri" onclick="saveEditBlk()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="ot-modal">
+  <div class="modal">
+    <h3 id="ot-modal-h">Add one-time event</h3>
+    <label>Label</label><input id="ot-label" type="text" placeholder="e.g. Vacation">
+    <label>Start date</label><input id="ot-start" type="date">
+    <label>End date</label><input id="ot-end" type="date">
+    <label>Color</label><input id="ot-clr" type="color" value="#8264F6">
+    <div class="mbtns"><button onclick="closeModal('ot-modal')">Cancel</button><button class="mpri" onclick="saveOT()">Save OT</button></div>
+  </div>
+</div>
+
+<script>
+// ─── Constants ───────────────────────────────────────────────
+const DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DFULL=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MF=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const SWATCHES=['#4ade80','#60a5fa','#f59e0b','#e879f9','#8b5cf6','#2dd4bf','#f87171','#fb923c','#a3e635','#38bdf8'];
+const APPT_ACC='#f59e0b',APPT_TXT='#fcd34d',APPT_BG='rgba(245,158,11,.12)';
+
+// ─── State ───────────────────────────────────────────────────
+let sb=null;
+let vd=new Date(); vd.setHours(0,0,0,0);
+let calVD=new Date(vd); calVD.setDate(1);
+let cache={};
+let schedBlocks=[];
+let oneTimeBlocks=[];
+let selBlkId=null;
+let editBlkId=null,editOTId=null,editApptId=null;
+let syncTmr=null;
+let workTasks=[];
+let showTasksInSchedule=false;
+let workTaskColor='#4ade80';
+let personalTaskColor='#60a5fa';
+let personalTasks=[];
+let phTabName='today';
+let planOrder=null;
+let dragSrc=null,dragType=null,planDragSrc=null;
+let isMobile=false;
+
+// ─── Config ──────────────────────────────────────────────────
+function getSB(){return{url:localStorage.getItem('sb_url'),key:localStorage.getItem('sb_key')}}
+function saveConfig(){
+  const url=document.getElementById('cfg-url').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!url||!key){alert('Fill in both fields.');return}
+  localStorage.setItem('sb_url',url);localStorage.setItem('sb_key',key);location.reload();
+}
+function resetCfg(){if(!confirm('Disconnect database?'))return;localStorage.removeItem('sb_url');localStorage.removeItem('sb_key');location.reload()}
+
+// ─── Helpers ─────────────────────────────────────────────────
+function toMin(t){if(!t)return null;const[h,m]=t.split(':').map(Number);return h*60+m}
+function toFmt(m){const h=Math.floor(m/60),mn=m%60,ap=h>=12?'PM':'AM';return(h%12||12)+':'+(mn<10?'0':'')+mn+' '+ap}
+function fmt12(t){if(!t)return'';return toFmt(toMin(t))}
+function dkey(d){return d.toISOString().slice(0,10)}
+function setSyncDot(s){document.getElementById('syncdot').className='sync-dot '+s}
+function getOverride(d){const k=dkey(d);return oneTimeBlocks.find(b=>k>=b.start_date&&k<=b.end_date)||null}
+function getWorkBlocks(){return schedBlocks.filter(b=>b.is_work&&b.days.includes(vd.getDay()))}
+function getPersBlocks(){return schedBlocks.filter(b=>b.is_personal&&b.days.includes(vd.getDay()))}
+function blksToday(){return schedBlocks.filter(b=>b.days.includes(vd.getDay())).sort((a,b2)=>a.time.localeCompare(b2.time))}
+function getCache(){const k=dkey(vd);if(!cache[k])cache[k]={appts:[]};return cache[k]}
+function bBg(acc){return acc+'20'} function bTxt(acc){return acc+'ee'}
+function checkMobile(){
+  isMobile=window.innerWidth<=680;
+  document.getElementById('ph-tl-wrap').style.display=isMobile?'flex':'none';
+  document.querySelector('.main').style.display=isMobile?'none':'flex';
+}
+window.addEventListener('resize',()=>{checkMobile();render()});
+
+// ─── Init ────────────────────────────────────────────────────
+async function start(){
+  const{url,key}=getSB();
+  if(!url||!key){document.getElementById('cfg').classList.add('on');return}
+  try{
+    sb=supabase.createClient(url,key);
+    document.getElementById('app').classList.add('on');
+    setSyncDot('busy');
+    await Promise.all([loadBlocks(),loadSettings(),loadTasks()]);
+    await loadDay(vd);
+    setSyncDot('ok');checkMobile();render();startClock();
+  }catch(e){setSyncDot('err');document.getElementById('cfg').classList.add('on');alert('Could not connect.\n'+e.message)}
+}
+
+function startClock(){
+  function tick(){
+    const n=new Date(),h=n.getHours(),m=n.getMinutes(),ap=h>=12?'PM':'AM';
+    document.getElementById('clk').textContent=(h%12||12)+':'+(m<10?'0':'')+m+' '+ap;
+    render();
+  }
+  tick();setInterval(tick,30000);
+}
+
+// ─── DB ──────────────────────────────────────────────────────
+async function loadBlocks(){
+  const{data,error}=await sb.from('schedule_blocks').select('*').order('sort_order');
+  if(error)throw error;
+  schedBlocks=data.map(b=>({...b,days:b.days.split(',').map(Number),end:b.end_time||'',acc:b.acc||'#888',is_work:!!b.is_work,is_personal:!!b.is_personal}));
+  const{data:ot}=await sb.from('app_settings').select('*').eq('key','one_time_blocks');
+  if(ot&&ot.length){try{oneTimeBlocks=JSON.parse(ot[0].value)||[]}catch(e){oneTimeBlocks=[]}}
+}
+async function loadSettings(){
+  const{data}=await sb.from('app_settings').select('*');
+  if(data)data.forEach(r=>{
+    if(r.key==='block_colors'){try{const m=JSON.parse(r.value);Object.keys(m).forEach(id=>{const b=schedBlocks.find(x=>x.id==id);if(b)b.acc=m[id]})}catch(e){}}
+    if(r.key==='task_colors'){try{const m=JSON.parse(r.value);workTaskColor=m.work||workTaskColor;personalTaskColor=m.personal||personalTaskColor;}catch(e){}}
+  });
+}
+async function saveTaskColors(){
+  await sb.from('app_settings').upsert({key:'task_colors',value:JSON.stringify({work:workTaskColor,personal:personalTaskColor})},{onConflict:'key'});
+}
+async function saveBlockColors(){const m={};schedBlocks.forEach(b=>{if(b.acc)m[b.id]=b.acc});await sb.from('app_settings').upsert({key:'block_colors',value:JSON.stringify(m)},{onConflict:'key'})}
+async function saveOTBlocks(){await sb.from('app_settings').upsert({key:'one_time_blocks',value:JSON.stringify(oneTimeBlocks)},{onConflict:'key'})}
+async function loadTasks(){
+  // Tasks are persistent - not tied to any date
+  const{data,error}=await sb.from('tasks').select('*').eq('date_key','persistent').order('id');
+  if(error){console.error(error);return}
+  workTasks=data.filter(x=>x.type==='work').map(x=>({...x,color:x.color||'',notes:x.notes||''}));
+  personalTasks=data.filter(x=>x.type==='personal').map(x=>({...x,color:x.color||'',notes:x.notes||''}));
+}
+async function loadDay(d){
+  const k=dkey(d);setSyncDot('busy');
+  try{
+    const{data,error}=await sb.from('appointments').select('*').eq('date_key',k);
+    if(error)throw error;
+    if(!cache[k])cache[k]={appts:[]};
+    cache[k].appts=data.sort((a,b2)=>a.start_time.localeCompare(b2.start_time)).map(x=>({...x,start:x.start_time,end:x.end_time,notes:x.notes||'',color:x.color||'#f59e0b',block_id:x.block_id}));
+    setSyncDot('ok');
+  }catch(e){setSyncDot('err');console.error(e)}
+}
+async function dbSaveTask(t){await sb.from('tasks').upsert({id:t.id,type:t.type||'work',date_key:'persistent',text:t.text,done:t.done,color:t.color||'',notes:t.notes||''},{onConflict:'id'})}
+async function dbDelTask(id){await sb.from('tasks').delete().eq('id',id)}
+async function dbSaveAppt(a,k){await sb.from('appointments').upsert({id:a.id,date_key:k,title:a.title,start_time:a.start,end_time:a.end,notes:a.notes||'',color:a.color||'#f59e0b',block_id:a.block_id||null},{onConflict:'id'})}
+async function dbDelAppt(id){await sb.from('appointments').delete().eq('id',id)}
+async function dbSaveBlock(b){await sb.from('schedule_blocks').upsert({id:b.id,label:b.label,time:b.time,end_time:b.end||'',days:b.days.join(','),is_work:b.is_work||false,is_personal:b.is_personal||false,sort_order:b.sort_order||0},{onConflict:'id'})}
+async function dbDelBlock(id){await sb.from('schedule_blocks').delete().eq('id',id)}
+
+// ─── Nav ─────────────────────────────────────────────────────
+async function chDay(n){
+  vd=new Date(vd);vd.setDate(vd.getDate()+n);
+  planOrder=null;setSyncDot('busy');
+  await loadDay(vd);render();
+}
+// tasks are persistent - no rollover needed
+
+// ─── Render ──────────────────────────────────────────────────
+function render(){
+  document.getElementById('ddisp').textContent=DFULL[vd.getDay()]+', '+MS[vd.getMonth()]+' '+vd.getDate();
+  renderSidebar();
+  if(isMobile)renderPhone();
+  else{
+    const tp=n=>document.getElementById('tab-'+n);
+    const act=n=>tp(n).classList.contains('on');
+    if(act('work'))renderTasks('work');
+    if(act('personal'))renderTasks('personal');
+    if(act('calendar'))renderCal();
+    if(act('settings')){renderBlkList();renderSwatches();renderTimeRows()}
+  }
+}
+
+// ─── Sidebar ─────────────────────────────────────────────────
+function renderSidebar(){
+  if(isMobile)return;
+  const ov=getOverride(vd);
+  if(ov){
+    document.getElementById('sb-inner').innerHTML=`<div style="border-radius:8px;padding:10px;background:${bBg(ov.acc||'#8264F6')};border-left:3px solid ${ov.acc||'#8264F6'};text-align:center"><i class="ti ti-beach" style="font-size:18px;color:${ov.acc||'#8264F6'}"></i><div style="font-size:11px;font-weight:500;color:${ov.acc||'#8264F6'};margin-top:4px">${ov.label}</div></div>`;
+    return;
+  }
+  const blks=blksToday();
+  if(!blks.length){document.getElementById('sb-inner').innerHTML='';return}
+  const nm=new Date().getHours()*60+new Date().getMinutes();
+  const isT=dkey(vd)===dkey(new Date());
+  const d=getCache();
+  const DS=toMin(blks[0].time);
+  const DE=toMin(blks[blks.length-1].end||blks[blks.length-1].time)+60;
+  const TOT=DE-DS;
+  const TW=32;  // tick column width px
+  const G=0.4;  // % gap
+  const HEADER_H=28; // px reserved for block header text
+
+  let html='';
+
+  // Hour tick marks
+  for(let m=DS;m<=DE;m+=60){
+    const pct=(m-DS)/TOT*100;
+    const h=Math.floor(m/60),ap=h>=12?'pm':'am';
+    html+=`<div style="position:absolute;left:0;width:${TW}px;top:${pct}%;transform:translateY(-50%);font-size:7.5px;color:var(--text3);text-align:right;padding-right:5px;pointer-events:none;line-height:1">${(h%12||12)}${ap}</div>`;
+    html+=`<div style="position:absolute;left:${TW}px;top:${pct}%;right:0;height:.5px;background:rgba(255,255,255,.07);pointer-events:none"></div>`;
+  }
+
+  // Track task indices
+  let wTaskIdx=0, pTaskIdx=0;
+  const activeW=workTasks.filter(t=>!t.done);
+  const activeP=personalTasks.filter(t=>!t.done);
+
+  blks.forEach(b=>{
+    const acc=b.acc, bs=toMin(b.time), be=toMin(b.end)||bs+60;
+    const top=(bs-DS)/TOT*100+G;
+    const ht=(be-bs)/TOT*100-G*2;
+    const blkMins=be-bs;
+    // Header occupies top HEADER_H px worth (as % of block)
+    const headerPct=Math.min(HEADER_H/(ht/100*(document.getElementById('sb-inner').offsetHeight||300))*100,30);
+
+    // All blocks accept appointments
+    const appts=d.appts.filter(a=>toMin(a.start)>=bs&&toMin(a.end)<=be).sort((x,y)=>toMin(x.start)-toMin(y.start));
+
+    // Build free segments (gaps between appointments, after header)
+    const headerEndMin=bs + (blkMins*headerPct/100);
+    let segs=[], cur=bs;
+    appts.forEach(a=>{
+      const as=toMin(a.start), ae=toMin(a.end);
+      if(as>cur) segs.push({type:'free',s:cur,e:as});
+      segs.push({type:'appt',s:as,e:ae,a});
+      cur=ae;
+    });
+    if(cur<be) segs.push({type:'free',s:cur,e:be});
+
+    // Build inner content
+    let inn='';
+
+    // Appointment divs (indented)
+    appts.forEach(a=>{
+      const ac=a.color||APPT_ACC;
+      const aTop=(toMin(a.start)-bs)/(be-bs)*100;
+      const aH=(toMin(a.end)-toMin(a.start))/(be-bs)*100;
+      inn+=`<div style="position:absolute;top:${aTop}%;height:${aH}%;left:18px;right:3px;background:${ac}20;border-left:2px solid ${ac};border-radius:3px;padding:2px 4px;overflow:hidden;z-index:3">
+        <div style="font-size:7px;font-weight:600;color:${ac};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.title}</div>
+        <div style="font-size:6px;color:${ac};opacity:.8">${fmt12(a.start)}–${fmt12(a.end)}</div>
+      </div>`;
+    });
+
+    // Task fills (only when toggle on, only in free segments after header area)
+    if(showTasksInSchedule){
+      const taskList  = b.is_personal ? activeP : activeW;
+      const taskColor = b.is_personal ? personalTaskColor : workTaskColor;
+      let taskIdx = b.is_personal ? pTaskIdx : wTaskIdx;
+
+      segs.forEach(seg=>{
+        if(seg.type!=='free') return;
+        let t=Math.max(seg.s, bs); // don't start before block start
+        while(taskIdx<taskList.length && t+60<=seg.e){
+          const task=taskList[taskIdx];
+          const tTop=(t-bs)/(be-bs)*100;
+          const tH=60/(be-bs)*100-0.3;
+          inn+=`<div style="position:absolute;top:${tTop}%;left:18px;right:3px;height:${tH}%;background:${taskColor}18;border-radius:4px;border-left:3px solid ${taskColor};padding:1px 5px;overflow:hidden;display:flex;align-items:center;justify-content:space-between;cursor:grab;z-index:2"
+            draggable="true" data-sb-task="${task.id}"
+            ondragstart="sbTaskDStart(event)" ondragover="sbTaskDOver(event)" ondrop="sbTaskDDrop(event)" ondragend="sbTaskDEnd()">
+            <div style="font-size:8px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${task.text}</div>
+            <div style="font-size:7px;color:var(--text3);white-space:nowrap;margin-left:3px;flex-shrink:0">${toFmt(t)}</div>
+          </div>`;
+          t+=60; taskIdx++;
+        }
+      });
+
+      if(b.is_personal) pTaskIdx=taskIdx; else wTaskIdx=taskIdx;
+    }
+
+    html+=`<div style="position:absolute;top:${top}%;height:${ht}%;left:${TW+2}px;right:0;border-radius:7px;border-left:3px solid ${acc};overflow:hidden">
+      <div style="position:absolute;inset:0;background:${bBg(acc)}">
+        <div style="padding:2px 5px 2px;background:${bBg(acc)};position:relative;z-index:4">
+          <div style="font-size:7px;color:${bTxt(acc)};opacity:.65;line-height:1.3">${fmt12(b.time)}${b.end?' – '+fmt12(b.end):''}</div>
+          <div style="font-size:9px;font-weight:700;color:${bTxt(acc)};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.label}</div>
+        </div>
+        ${inn}
+      </div>
+    </div>`;
+  });
+
+  // Standalone appointments (outside all blocks)
+  d.appts.forEach(a=>{
+    const inAny=blks.some(b=>toMin(a.start)>=toMin(b.time)&&toMin(a.end)<=(toMin(b.end||b.time)+60));
+    if(!inAny){
+      const ac=a.color||APPT_ACC;
+      const aTop=(toMin(a.start)-DS)/TOT*100+G;
+      const aH=(toMin(a.end)-toMin(a.start))/TOT*100-G*2;
+      html+=`<div style="position:absolute;top:${aTop}%;height:${aH}%;left:${TW+2}px;right:0;background:${ac}20;border-left:3px solid ${ac};border-radius:7px;overflow:hidden;padding:2px 5px 1px">
+        <div style="font-size:7px;color:${ac};opacity:.8">${fmt12(a.start)}–${fmt12(a.end)}</div>
+        <div style="font-size:9px;font-weight:600;color:${ac};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.title}</div>
+      </div>`;
+    }
+  });
+
+  // Now-line
+  if(isT&&nm>=DS&&nm<=DE){
+    const pct=(nm-DS)/TOT*100;
+    html+=`<div style="position:absolute;top:${pct}%;left:${TW}px;right:0;z-index:30;pointer-events:none;display:flex;align-items:center">
+      <span style="font-size:7.5px;font-weight:700;color:var(--red);white-space:nowrap;background:var(--surface);padding:0 2px;flex-shrink:0">${toFmt(nm)}</span>
+      <div style="width:5px;height:5px;border-radius:50%;background:var(--red);flex-shrink:0"></div>
+      <div style="flex:1;height:1.5px;background:var(--red)"></div>
+    </div>`;
+  }
+
+  document.getElementById('sb-inner').innerHTML=`<div style="position:absolute;inset:0">${html}</div>`;
+}
+
+
+// ─── Tasks ───────────────────────────────────────────────────
+function taskCard(t,type){
+  const hasNote=t.notes&&t.notes.trim();
+  return`<div class="tcard" draggable="true" data-id="${t.id}" data-type="${type}" ondragstart="dStart(event,'${type}')" ondragover="dOver(event)" ondrop="dDrop(event,'${type}')" ondragend="dEnd(event)">
+    <div class="trow">
+      <div class="tbar" style="background:${t.color||'rgba(255,255,255,.12)'}"></div>
+      <i class="ti ti-grip-vertical drag-h"></i>
+      <input type="checkbox" class="tcb" ${t.done?'checked':''} onchange="toggleTask(${t.id},'${type}')">
+      <input class="tname${t.done?' done':''}" value="${(t.text||'').replace(/"/g,'&quot;')}" onblur="renameTask(${t.id},'${type}',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+      <div class="tacts">
+        <button class="tib" onclick="toggleNote(${t.id})" title="Notes"><i class="ti ti-notes"></i></button>
+        <button class="tib" onclick="delTask(${t.id},'${type}')" title="Delete"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>
+    <div id="na-${t.id}" class="tnote-area" style="${hasNote?'':'display:none'}">
+      <textarea class="tnote-inp" placeholder="Add a note…" onblur="saveNote(${t.id},'${type}',this.value)">${t.notes||''}</textarea>
+    </div>
+  </div>`;
+}
+function toggleNote(id){const el=document.getElementById('na-'+id);if(!el)return;const h=el.style.display==='none';el.style.display=h?'block':'none';if(h){const ta=el.querySelector('textarea');if(ta)setTimeout(()=>ta.focus(),50)}}
+async function saveNote(id,type,val){const l=type==='work'?workTasks:personalTasks;const t=l.find(x=>x.id===id);if(!t||t.notes===val)return;t.notes=val;setSyncDot('busy');await dbSaveTask({...t,type});setSyncDot('ok')}
+async function toggleTask(id,type){const l=type==='work'?workTasks:personalTasks;const t=l.find(x=>x.id===id);if(!t)return;t.done=!t.done;render();setSyncDot('busy');await dbSaveTask({...t,type});setSyncDot('ok')}
+async function renameTask(id,type,val){if(!val.trim())return;const l=type==='work'?workTasks:personalTasks;const t=l.find(x=>x.id===id);if(!t||t.text===val.trim())return;t.text=val.trim();setSyncDot('busy');await dbSaveTask({...t,type});setSyncDot('ok')}
+async function delTask(id,type){if(type==='work')workTasks=workTasks.filter(x=>x.id!==id);else personalTasks=personalTasks.filter(x=>x.id!==id);render();setSyncDot('busy');await dbDelTask(id);setSyncDot('ok')}
+async function addTask(type){
+  const sfx=isMobile?`ph-${type}-inp`:`${type}-inp`;
+  const inp=document.getElementById(sfx)||document.getElementById(`${type}-inp`);
+  const txt=inp?.value.trim();if(!txt)return;
+  const task={id:Date.now(),type,date_key:'persistent',text:txt,done:false,color:SWATCHES[Math.floor(Math.random()*6)],notes:''};
+  if(type==='work')workTasks.push(task);else personalTasks.push(task);
+  if(inp)inp.value='';render();setSyncDot('busy');await dbSaveTask(task);setSyncDot('ok');
+}
+function renderTasks(type){
+  const list=type==='work'?workTasks:personalTasks;
+  const el=document.getElementById(type+'-list');
+  el.innerHTML=list.length?list.map(t=>taskCard(t,type)).join(''):'<div class="empty">No tasks — add one above</div>';
+}
+// drag
+function dStart(e,type){dragSrc=e.currentTarget;dragType=type;e.currentTarget.classList.add('dragging');e.dataTransfer.effectAllowed='move'}
+function dOver(e){e.preventDefault();document.querySelectorAll('.tcard.drag-over').forEach(el=>el.classList.remove('drag-over'));if(e.currentTarget!==dragSrc)e.currentTarget.classList.add('drag-over')}
+function dDrop(e,type){e.preventDefault();document.querySelectorAll('.tcard.drag-over').forEach(el=>el.classList.remove('drag-over'));if(!dragSrc||e.currentTarget===dragSrc||dragType!==type)return;const si=parseInt(dragSrc.dataset.id),ti=parseInt(e.currentTarget.dataset.id);const list=type==='work'?workTasks:personalTasks;const a=list.findIndex(x=>x.id===si),b=list.findIndex(x=>x.id===ti);if(a<0||b<0)return;const[item]=list.splice(a,1);list.splice(b,0,item);renderTasks(type)}
+function dEnd(e){e.currentTarget.classList.remove('dragging');document.querySelectorAll('.tcard.drag-over').forEach(el=>el.classList.remove('drag-over'));dragSrc=null}
+
+// ─── Appointments ────────────────────────────────────────────
+function openApptForm(id){
+  editApptId=id;
+  const d=getCache();const existing=id?d.appts.find(x=>x.id===id):{title:'',start:'09:00',end:'10:00',notes:''};
+  const old=document.getElementById('af-inline');if(old)old.remove();
+  const el=document.createElement('div');el.id='af-inline';el.className='appt-form';
+  const existingColor=existing?.color||'#f59e0b';
+  el.innerHTML=`<h4>${id?'Edit appointment':'New appointment'}</h4>
+    <input class="af-inp" id="af-title" type="text" placeholder="Appointment title" value="${existing?.title||''}">
+    <div class="af-row"><input class="af-inp" id="af-start" type="time" value="${existing?.start||'09:00'}" style="margin-bottom:0;flex:1"><span>to</span><input class="af-inp" id="af-end" type="time" value="${existing?.end||'10:00'}" style="margin-bottom:0;flex:1"></div>
+    <input class="af-inp" id="af-notes" type="text" placeholder="Notes (optional)" value="${existing?.notes||''}">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="font-size:11px;color:rgba(252,211,77,.6)">Color</span>
+      <div style="display:flex;gap:5px;flex-wrap:wrap" id="af-swatches">${['#f59e0b','#4ade80','#60a5fa','#e879f9','#f87171','#2dd4bf','#fb923c','#a78bfa'].map(c=>`<div style="width:18px;height:18px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===existingColor?'#fff':'transparent'};flex-shrink:0" onclick="afPickColor('${c}',this)"></div>`).join('')}</div>
+      <input type="color" id="af-color" value="${existingColor}" style="width:22px;height:22px;border:none;border-radius:50%;padding:0;background:none;cursor:pointer" oninput="afPickColor(this.value,null)">
+    </div>
+    <div class="af-btns"><button class="af-save" onclick="saveApptForm()">${id?'Save changes':'Add appointment'}</button><button class="af-cancel" onclick="document.getElementById('af-inline').remove()">Cancel</button></div>`;
+  const list=document.getElementById('appts-list');list.insertBefore(el,list.firstChild);
+  document.getElementById('af-title').focus();
+}
+async function saveApptForm(){
+  const title=document.getElementById('af-title').value.trim();
+  const start=document.getElementById('af-start').value;
+  const end=document.getElementById('af-end').value;
+  const notes=document.getElementById('af-notes').value.trim();
+  const color=document.getElementById('af-color')?.value||'#f59e0b';
+  if(!title||!start||!end)return;
+  const d=getCache(),k=dkey(vd);
+  const blk=schedBlocks.find(b=>b.is_work&&b.days.includes(vd.getDay())&&toMin(start)>=toMin(b.time)&&toMin(end)<=toMin(b.end||b.time)+60)||null;
+  const block_id=blk?blk.id:null;
+  if(editApptId){const a=d.appts.find(x=>x.id===editApptId);if(a){a.title=title;a.start=start;a.end=end;a.notes=notes;a.color=color;a.block_id=block_id}setSyncDot('busy');await dbSaveAppt({id:editApptId,title,start,end,notes,color,block_id},k);}
+  else{const a={id:Date.now(),title,start,end,notes,color,block_id};d.appts.push(a);d.appts.sort((x,y)=>x.start.localeCompare(y.start));setSyncDot('busy');await dbSaveAppt(a,k)}
+  document.getElementById('af-inline').remove();setSyncDot('ok');renderAppts();renderSidebar();
+}
+async function delAppt(id){const d=getCache();d.appts=d.appts.filter(x=>x.id!==id);renderAppts();renderSidebar();setSyncDot('busy');await dbDelAppt(id);setSyncDot('ok')}
+function renderAppts(){
+  const d=getCache();const el=document.getElementById('appts-list');
+  if(!el)return;
+  if(!d.appts.length){el.innerHTML='<div class="empty">No appointments today</div>';return}
+  el.innerHTML=d.appts.map(a=>{
+    const blk=schedBlocks.find(b=>b.is_work&&b.days.includes(vd.getDay())&&toMin(a.start)>=toMin(b.time));
+    const ac=a.color||'#f59e0b';
+    return`<div class="appt-card" style="border-left:3px solid ${ac};margin-left:16px;background:${ac}18">
+      <div class="appt-info">
+        <div class="appt-title" style="color:${ac}">${a.title}</div>
+        <div class="appt-time">${fmt12(a.start)} – ${fmt12(a.end)}</div>
+        ${blk?`<div class="appt-blk"><i class="ti ti-corner-down-right" style="font-size:10px"></i> ${blk.label}</div>`:''}
+        ${a.notes?`<div class="appt-note"><i class="ti ti-notes" style="font-size:10px"></i> ${a.notes}</div>`:''}
+      </div>
+      <div class="appt-acts">
+        <button class="tib" style="color:${ac};opacity:.8" onclick="openApptForm(${a.id})" title="Edit"><i class="ti ti-edit"></i></button>
+        <button class="tib" style="color:${ac};opacity:.5" onclick="delAppt(${a.id})" title="Delete"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Day plan ────────────────────────────────────────────────
+function nowRowHtml(){const nm=new Date().getHours()*60+new Date().getMinutes();return`<div class="now-row"><span class="now-row-time">${toFmt(nm)}</span><div class="now-row-dot"></div><div class="now-row-line"></div></div>`}
+function planTaskHtml(t,s){return`<div class="ptask" style="border-left-color:${t.color||'rgba(255,255,255,.2)'}" draggable="true" data-plan-id="${t.id}" ondragstart="pdStart(event)" ondragover="pdOver(event)" ondrop="pdDrop(event)" ondragend="pdEnd(event)"><div style="flex:1;min-width:0"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.text}</div>${t.notes?`<div style="font-size:10px;color:var(--text3);margin-top:1px"><i class="ti ti-notes" style="font-size:10px"></i> ${t.notes}</div>`:''}</div><span class="pstime">${toFmt(s)}-${toFmt(s+60)}</span></div>`}
+function renderPlan(){
+  const ov=getOverride(vd);
+  if(ov){
+    document.getElementById('plan-view').innerHTML=`<div class="vac-banner" style="background:${bBg(ov.acc||'#8264F6')};border-left-color:${ov.acc||'#8264F6'}"><div class="vbig"><i class="ti ti-beach" style="color:${ov.acc||'#8264F6'}"></i></div><div class="vt" style="color:${ov.acc||'#8264F6'}">${ov.label}</div><div class="vs" style="color:${ov.acc||'#8264F6'}">All recurring blocks cleared</div></div>`;
+    document.getElementById('plan-tl').innerHTML='';
+    return;
+  }
+  const isT=dkey(vd)===dkey(new Date());
+  const nm=isT?new Date().getHours()*60+new Date().getMinutes():-1;
+  const d=getCache();
+  const allBlks=blksToday();
+  if(!allBlks.length){
+    document.getElementById('plan-view').innerHTML='<div class="off-banner"><div class="oi"><i class="ti ti-coffee"></i></div><h3>No blocks today</h3></div>';
+    document.getElementById('plan-tl').innerHTML='';
+    return;
+  }
+
+  const DS=toMin(allBlks[0].time);
+  const DE=toMin(allBlks[allBlks.length-1].end||allBlks[allBlks.length-1].time)+60;
+  const TOT=DE-DS;
+  const G=0.4;   // % gap between blocks
+  const BL=6;    // px left margin for blocks inside plan-view
+  const BR=4;    // px right margin
+  const IL=22;   // px indent for appointments/tasks inside a block (from block left edge)
+
+  // ── Hour ticks in plan-tl ──
+  let hh='';
+  for(let m=DS;m<=DE;m+=60){
+    const pct=(m-DS)/TOT*100;
+    const h=Math.floor(m/60),ap=h>=12?'pm':'am';
+    hh+=`<div class="plan-tick" style="top:${pct}%">${(h%12||12)}${ap}</div>`;
+    hh+=`<div class="plan-hline" style="top:${pct}%"></div>`;
+  }
+  document.getElementById('plan-tl').innerHTML=`<div style="position:absolute;inset:0;overflow:hidden">${hh}</div>`;
+
+  // ── Work tasks for scheduling ──
+  const activeW=workTasks.filter(t=>!t.done);
+  if(!planOrder)planOrder=activeW.map(t=>t.id);
+  const orderedW=[...planOrder.map(id=>activeW.find(t=>t.id===id)).filter(Boolean),...activeW.filter(t=>!planOrder.includes(t.id))];
+  const activeP=personalTasks.filter(t=>!t.done);
+
+  // Total free work minutes
+  const allWorkBlks=allBlks.filter(b=>b.is_work);
+  let totalFreeW=0;
+  allWorkBlks.forEach(wb=>{
+    const ws=toMin(wb.time),we=toMin(wb.end)||ws+240;
+    let used=0;
+    d.appts.filter(a=>toMin(a.start)>=ws&&toMin(a.end)<=we).forEach(a=>{used+=toMin(a.end)-toMin(a.start)});
+    totalFreeW+=(we-ws-used);
+  });
+  const fittedW=orderedW.slice(0,Math.floor(totalFreeW/60));
+  let wTaskIdx=0;
+
+  // ── Build block HTML ──
+  let blocksHtml='';
+
+  allBlks.forEach(b=>{
+    const acc=b.acc;
+    const bs=toMin(b.time);
+    const be=toMin(b.end)||bs+60;
+    const top=(bs-DS)/TOT*100+G;
+    const ht=(be-bs)/TOT*100-G*2;
+    const HEADER_PCT=Math.min(18, 30/(be-bs)*100); // header ~30px worth as %
+
+    if(!b.is_work&&!b.is_personal){
+      // ── Regular block ──
+      blocksHtml+=`<div style="position:absolute;top:${top}%;left:${BL}px;right:${BR}px;height:${ht}%;background:${bBg(acc)};border-radius:8px;border-left:3px solid ${acc};padding:5px 11px;overflow:hidden">
+        <div style="font-size:9px;color:${bTxt(acc)};opacity:.6;margin-bottom:1px">${fmt12(b.time)}${b.end?' – '+fmt12(b.end):''}</div>
+        <div style="font-size:12px;font-weight:700;color:${bTxt(acc)}">${b.label}</div>
+      </div>`;
+
+    } else if(b.is_personal){
+      // ── Personal block ──
+      const blkMins=be-bs;
+      const personalForBlock=activeP.slice(0,Math.floor(blkMins/60));
+      let innerHtml='';let pt=bs;
+      personalForBlock.forEach(task=>{
+        if(pt+60>be)return;
+        const tTop=(pt-bs)/(be-bs)*100;
+        const tH=60/(be-bs)*100-0.4;
+        innerHtml+=`<div style="position:absolute;top:${tTop}%;left:${IL}px;right:6px;height:${tH}%;background:rgba(255,255,255,.06);border-radius:5px;border-left:3px solid ${task.color||'#888'};padding:3px 8px;overflow:hidden;display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;color:var(--text)">${task.text}</div>
+          <div style="font-size:9px;color:var(--text3);white-space:nowrap;margin-left:6px;flex-shrink:0">${toFmt(pt)}</div>
+        </div>`;
+        pt+=60;
+      });
+      if(pt<be){
+        const fTop=(pt-bs)/(be-bs)*100;
+        innerHtml+=`<div style="position:absolute;top:${fTop}%;left:${IL}px;right:6px;padding:3px 8px"><span style="font-size:9px;color:var(--text3)">${toFmt(pt)} – ${toFmt(be)} · ${be-pt} min free</span></div>`;
+      }
+      blocksHtml+=`<div style="position:absolute;top:${top}%;left:${BL}px;right:${BR}px;height:${ht}%;background:${bBg(acc)};border-radius:8px;border-left:3px solid ${acc};overflow:hidden">
+        <div style="position:absolute;inset:0">
+          <div style="padding:5px 11px 3px;border-bottom:.5px solid rgba(255,255,255,.06);margin-bottom:2px">
+            <div style="font-size:9px;color:${bTxt(acc)};opacity:.6">${fmt12(b.time)} – ${fmt12(b.end)}</div>
+            <div style="font-size:12px;font-weight:700;color:${bTxt(acc)}">${b.label} <span class="pbadge">personal</span></div>
+          </div>
+          ${innerHtml}
+        </div>
+      </div>`;
+
+    } else {
+      // ── Work block ──
+      const appts=d.appts.filter(a=>toMin(a.start)>=bs&&toMin(a.end)<=be).sort((x,y)=>x.start.localeCompare(y.start));
+      let segs=[],cur=bs;
+      appts.forEach(a=>{
+        const as=toMin(a.start),ae=toMin(a.end);
+        if(as>cur)segs.push({type:'free',s:cur,e:as});
+        segs.push({type:'appt',s:as,e:ae,a});
+        cur=ae;
+      });
+      if(cur<be)segs.push({type:'free',s:cur,e:be});
+
+      let innerHtml='';
+      segs.forEach(seg=>{
+        const sTop=(seg.s-bs)/(be-bs)*100;
+        const sH=(seg.e-seg.s)/(be-bs)*100-0.3;
+
+        if(seg.type==='appt'){
+          // Appointment — indented, amber styling
+          innerHtml+=`<div style="position:absolute;top:${sTop}%;left:${IL}px;right:6px;height:${sH}%;background:${APPT_BG};border-radius:6px;border-left:3px solid ${APPT_ACC};padding:3px 9px;overflow:hidden">
+            <div style="font-size:9px;color:${APPT_TXT};opacity:.75;margin-bottom:1px">${toFmt(seg.s)} – ${toFmt(seg.e)}</div>
+            <div style="font-size:11px;font-weight:600;color:${APPT_TXT};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${seg.a.title}</div>
+            ${seg.a.notes?`<div style="font-size:9px;color:${APPT_TXT};opacity:.55;margin-top:1px">${seg.a.notes}</div>`:''}
+          </div>`;
+        } else {
+          // Free slot — draggable work tasks, indented
+          let t=seg.s;
+          while(wTaskIdx<fittedW.length&&t+60<=seg.e){
+            const task=fittedW[wTaskIdx];
+            const tTop=(t-bs)/(be-bs)*100;
+            const tH=60/(be-bs)*100-0.3;
+            innerHtml+=`<div class="ptask" style="position:absolute;top:${tTop}%;left:${IL}px;right:6px;height:${tH}%;border-left-color:${task.color||'rgba(255,255,255,.2)'};border-radius:6px;padding:3px 9px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.04)" draggable="true" data-plan-id="${task.id}" ondragstart="pdStart(event)" ondragover="pdOver(event)" ondrop="pdDrop(event)" ondragend="pdEnd(event)">
+              <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0">
+                <i class="ti ti-grip-vertical" style="font-size:11px;color:var(--text3);flex-shrink:0"></i>
+                <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text)">${task.text}</div>
+              </div>
+              <div style="font-size:9px;color:var(--text3);white-space:nowrap;margin-left:6px;flex-shrink:0">${toFmt(t)}</div>
+            </div>`;
+            t+=60;wTaskIdx++;
+          }
+          if(t<seg.e){
+            const fTop=(t-bs)/(be-bs)*100;
+            innerHtml+=`<div style="position:absolute;top:${fTop}%;left:${IL}px;right:6px;padding:3px 8px"><span style="font-size:9px;color:var(--text3)">${toFmt(t)} – ${toFmt(seg.e)} · ${seg.e-t} min free</span></div>`;
+          }
+        }
+      });
+
+      blocksHtml+=`<div style="position:absolute;top:${top}%;left:${BL}px;right:${BR}px;height:${ht}%;background:${bBg(acc)};border-radius:8px;border-left:3px solid ${acc};overflow:hidden">
+        <div style="position:absolute;inset:0">
+          <div style="padding:5px 11px 3px;border-bottom:.5px solid rgba(255,255,255,.06)">
+            <div style="font-size:9px;color:${bTxt(acc)};opacity:.6">${fmt12(b.time)} – ${fmt12(b.end)}</div>
+            <div style="font-size:12px;font-weight:700;color:${bTxt(acc)}">${b.label}</div>
+          </div>
+          ${innerHtml}
+        </div>
+      </div>`;
+    }
+  });
+
+  // ── Standalone appointments (outside all work blocks) ──
+  const allWorkBs2=allBlks.filter(b=>b.is_work);
+  d.appts.forEach(a=>{
+    const inWork=allWorkBs2.some(b=>toMin(a.start)>=toMin(b.time)&&toMin(a.end)<=(toMin(b.end||b.time)+60));
+    if(!inWork&&toMin(a.start)>=DS&&toMin(a.end)<=DE){
+      const aTop=(toMin(a.start)-DS)/TOT*100+G;
+      const aH=(toMin(a.end)-toMin(a.start))/TOT*100-G*2;
+      blocksHtml+=`<div style="position:absolute;top:${aTop}%;left:${BL}px;right:${BR}px;height:${aH}%;background:${APPT_BG};border-radius:8px;border-left:3px solid ${APPT_ACC};padding:5px 11px;overflow:hidden">
+        <div style="font-size:9px;color:${APPT_TXT};opacity:.75;margin-bottom:1px">${fmt12(a.start)} – ${fmt12(a.end)}</div>
+        <div style="font-size:12px;font-weight:600;color:${APPT_TXT}">${a.title}</div>
+        ${a.notes?`<div style="font-size:9px;color:${APPT_TXT};opacity:.55;margin-top:1px">${a.notes}</div>`:''}
+      </div>`;
+    }
+  });
+
+  // ── Now-line ──
+  if(isT&&nm>=DS&&nm<=DE){
+    const nowPct=(nm-DS)/TOT*100;
+    blocksHtml+=`<div style="position:absolute;top:${nowPct}%;left:0;right:0;z-index:40;pointer-events:none;display:flex;align-items:center">
+      <span style="font-size:8px;font-weight:700;color:var(--red);white-space:nowrap;background:var(--bg);padding:0 3px;flex-shrink:0">${toFmt(nm)}</span>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0"></div>
+      <div style="flex:1;height:2px;background:var(--red)"></div>
+    </div>`;
+  }
+
+  document.getElementById('plan-view').innerHTML=`<div style="position:absolute;inset:0">${blocksHtml}</div>`;
+}
+
+function pdStart(e){planDragSrc=e.currentTarget;e.currentTarget.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',e.currentTarget.dataset.planId)}
+function pdOver(e){e.preventDefault();document.querySelectorAll('.ptask.drag-over-plan').forEach(el=>el.classList.remove('drag-over-plan'));if(e.currentTarget!==planDragSrc)e.currentTarget.classList.add('drag-over-plan')}
+function pdDrop(e){e.preventDefault();document.querySelectorAll('.ptask.drag-over-plan').forEach(el=>el.classList.remove('drag-over-plan'));if(!planDragSrc||e.currentTarget===planDragSrc)return;const si=parseInt(planDragSrc.dataset.planId),ti=parseInt(e.currentTarget.dataset.planId);if(!planOrder)planOrder=workTasks.filter(t=>!t.done).map(t=>t.id);const a=planOrder.indexOf(si),b=planOrder.indexOf(ti);if(a<0||b<0)return;const[id]=planOrder.splice(a,1);planOrder.splice(b,0,id);renderPlan()}
+function pdEnd(e){e.currentTarget.classList.remove('dragging');document.querySelectorAll('.ptask.drag-over-plan').forEach(el=>el.classList.remove('drag-over-plan'));planDragSrc=null}
+
+// ─── Calendar ────────────────────────────────────────────────
+function renderCal(){
+  const today=new Date();today.setHours(0,0,0,0);
+  const el=document.getElementById('cal-grid');
+  document.getElementById('cal-lbl').textContent=MF[calVD.getMonth()]+' '+calVD.getFullYear();
+  const first=new Date(calVD.getFullYear(),calVD.getMonth(),1);
+  const last=new Date(calVD.getFullYear(),calVD.getMonth()+1,0);
+  let html=DN.map(d=>`<div class="cal-hdr">${d[0]}</div>`).join('');
+  for(let i=0;i<first.getDay();i++)html+=`<div class="cal-day cother"></div>`;
+  for(let day=1;day<=last.getDate();day++){
+    const dd=new Date(calVD.getFullYear(),calVD.getMonth(),day);
+    const k=dkey(dd);
+    const isT=dd.getTime()===today.getTime(),isSel=dd.getTime()===vd.getTime();
+    const ov=oneTimeBlocks.find(b=>k>=b.start_date&&k<=b.end_date);
+    const dow=dd.getDay(),wblk=schedBlocks.find(b=>b.is_work&&b.days.includes(dow));
+    const isWknd=!wblk&&!ov;
+    let cls='cal-day'+(isT?' ct':isSel?' csel':isWknd?' cwknd':ov?' cbo':'');
+    const appts=cache[k]?.appts||[];
+    const dots=appts.slice(0,4).map(()=>`<div class="cal-dot" style="background:${APPT_ACC}"></div>`).join('');
+    const otDot=ov?`<div class="cal-dot" style="background:${ov.acc||'#8264F6'}"></div>`:'';
+    html+=`<div class="${cls}" onclick="calClick('${k}')"><div class="cal-dn">${day}</div><div class="cal-dots">${dots}${otDot}</div></div>`;
+  }
+  el.innerHTML=html;
+  // ot list
+  renderBOList();
+}
+function calMo(n){calVD=new Date(calVD);calVD.setMonth(calVD.getMonth()+n);renderCal()}
+function calClick(k){const p=k.split('-').map(Number);vd=new Date(p[0],p[1]-1,p[2]);loadDay(vd).then(()=>{render();swTab('work',document.querySelector('.tab'))})}
+function renderBOList(){
+  const el=document.getElementById('bo-list');
+  if(!oneTimeBlocks.length){el.innerHTML='';return}
+  el.innerHTML=`<div class="sect-h">One-time events</div>`+oneTimeBlocks.map(b=>`<div class="bo-item"><div><span style="color:${b.acc||'#8264F6'};font-weight:500">${b.label}</span> <span style="color:var(--text3);font-size:11px">${b.start_date}${b.start_date!==b.end_date?' → '+b.end_date:''}</span></div><button class="tib" onclick="delOT(${b.id})"><i class="ti ti-x"></i></button></div>`).join('')+`<button class="add-blk-dashed" onclick="openAddOT()"><i class="ti ti-plus"></i> Add one-time event / vacation</button>`;
+}
+
+// ─── Settings ────────────────────────────────────────────────
+function renderBlkList(){
+  document.getElementById('blk-list').innerHTML=schedBlocks.map(b=>`<div class="blk-item${selBlkId===b.id?' sel':''}" onclick="selBlk(${b.id})">
+    <div class="blk-dot" style="background:${b.acc||'#888'}"></div>
+    <div style="flex:1"><div class="blk-name">${b.label}${b.is_work?` <span class="wbadge">work</span>`:''}${b.is_personal?` <span class="pbadge">personal</span>`:''}</div><div class="blk-meta">${fmt12(b.time)}${b.end?' – '+fmt12(b.end):''}</div><div class="day-pill-row">${DN.map((d2,i)=>`<span class="dp${b.days.includes(i)?' on':''}">${d2}</span>`).join('')}</div></div>
+    <div style="display:flex;gap:3px"><button class="tib" onclick="event.stopPropagation();openEditBlk(${b.id})"><i class="ti ti-edit"></i></button><button class="tib" onclick="event.stopPropagation();delBlock(${b.id})"><i class="ti ti-trash"></i></button></div>
+  </div>`).join('')+`<button class="add-blk-dashed" onclick="openAddBlk()"><i class="ti ti-plus"></i> Add recurring block</button>`;
+}
+function renderSwatches(){
+  document.getElementById('swatches').innerHTML=SWATCHES.map(c=>{const sel=selBlkId&&schedBlocks.find(b=>b.id===selBlkId)?.acc===c;return`<div class="cswatch${sel?' sel':''}" style="background:${c}" onclick="applyClr('${c}')"></div>`}).join('');
+  const cc=document.getElementById('custom-clr');if(cc)cc.oninput=function(){applyClr(this.value)};
+  // Task color swatches
+  const ws=document.getElementById('work-task-swatches');
+  if(ws)ws.innerHTML=SWATCHES.map(c=>`<div style="width:16px;height:16px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===workTaskColor?'#fff':'transparent'}" onclick="setWorkTaskColor('${c}')"></div>`).join('');
+  const wc=document.getElementById('work-task-clr');if(wc)wc.value=workTaskColor;
+  const ps=document.getElementById('personal-task-swatches');
+  if(ps)ps.innerHTML=SWATCHES.map(c=>`<div style="width:16px;height:16px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===personalTaskColor?'#fff':'transparent'}" onclick="setPersonalTaskColor('${c}')"></div>`).join('');
+  const pc=document.getElementById('personal-task-clr');if(pc)pc.value=personalTaskColor;
+}
+function setWorkTaskColor(c){workTaskColor=c;renderSwatches();renderSidebar();clearTimeout(syncTmr);syncTmr=setTimeout(()=>saveTaskColors(),800);}
+function setPersonalTaskColor(c){personalTaskColor=c;renderSwatches();renderSidebar();clearTimeout(syncTmr);syncTmr=setTimeout(()=>saveTaskColors(),800);}
+function renderTimeRows(){
+  document.getElementById('time-rows').innerHTML=schedBlocks.map(b=>`<div class="srow"><label>${b.label}</label><input type="time" value="${b.time}" onchange="updateTime(${b.id},'time',this.value)"><span style="color:var(--text3);font-size:10px">→</span><input type="time" value="${b.end||''}" onchange="updateTime(${b.id},'end',this.value)"></div>`).join('');
+}
+function selBlk(id){selBlkId=id;renderBlkList();renderSwatches()}
+async function applyClr(c){if(!selBlkId)return;const b=schedBlocks.find(x=>x.id===selBlkId);if(b)b.acc=c;renderBlkList();renderSwatches();renderSidebar();setSyncDot('busy');clearTimeout(syncTmr);syncTmr=setTimeout(async()=>{await saveBlockColors();setSyncDot('ok')},800)}
+async function updateTime(id,field,val){const b=schedBlocks.find(x=>x.id===id);if(b)b[field]=val;render();setSyncDot('busy');clearTimeout(syncTmr);syncTmr=setTimeout(async()=>{await dbSaveBlock(b);setSyncDot('ok')},800)}
+function buildDayPills(cid,sel){document.getElementById(cid).innerHTML=DN.map((d2,i)=>`<button class="dp-m${sel.includes(i)?' on':''}" onclick="this.classList.toggle('on')">${d2}</button>`).join('')}
+function getSelDays(cid){return[...document.querySelectorAll('#'+cid+' .dp-m.on')].map(b=>DN.indexOf(b.textContent))}
+function openAddBlk(){editBlkId=null;document.getElementById('blk-modal-h').textContent='Add schedule block';document.getElementById('bm-label').value='';document.getElementById('bm-type').value='regular';document.getElementById('bm-time').value='07:00';document.getElementById('bm-end').value='';document.getElementById('bm-clr').value='#5DCAA5';buildDayPills('bm-days',[1,2,3,4,5]);document.getElementById('blk-modal').classList.add('open')}
+async function saveBlk(){
+  const label=document.getElementById('bm-label').value.trim(),time=document.getElementById('bm-time').value,type=document.getElementById('bm-type').value;if(!label||!time)return;
+  const days=getSelDays('bm-days');
+  const blk={id:Date.now(),label,time,end:document.getElementById('bm-end').value,acc:document.getElementById('bm-clr').value,days,is_work:type==='work',is_personal:type==='personal',sort_order:schedBlocks.length};
+  schedBlocks.push(blk);schedBlocks.sort((a,b2)=>a.time.localeCompare(b2.time));
+  closeModal('blk-modal');setSyncDot('busy');await dbSaveBlock(blk);await saveBlockColors();setSyncDot('ok');render();
+}
+function openEditBlk(id){const b=schedBlocks.find(x=>x.id===id);if(!b)return;editBlkId=id;document.getElementById('ebm-label').value=b.label;document.getElementById('ebm-type').value=b.is_work?'work':b.is_personal?'personal':'regular';document.getElementById('ebm-time').value=b.time;document.getElementById('ebm-end').value=b.end||'';document.getElementById('ebm-clr').value=b.acc||'#888';buildDayPills('ebm-days',b.days);document.getElementById('eblk-modal').classList.add('open')}
+async function saveEditBlk(){const b=schedBlocks.find(x=>x.id===editBlkId);if(!b)return;const label=document.getElementById('ebm-label').value.trim(),time=document.getElementById('ebm-time').value,type=document.getElementById('ebm-type').value;if(!label||!time)return;b.label=label;b.time=time;b.end=document.getElementById('ebm-end').value;b.acc=document.getElementById('ebm-clr').value;b.days=getSelDays('ebm-days');b.is_work=type==='work';b.is_personal=type==='personal';schedBlocks.sort((a,b2)=>a.time.localeCompare(b2.time));closeModal('eblk-modal');setSyncDot('busy');await dbSaveBlock(b);await saveBlockColors();setSyncDot('ok');render()}
+async function delBlock(id){if(!confirm('Delete this block?'))return;schedBlocks=schedBlocks.filter(x=>x.id!==id);render();setSyncDot('busy');await dbDelBlock(id);setSyncDot('ok')}
+function openAddOT(){editOTId=null;document.getElementById('ot-modal-h').textContent='Add one-time event';document.getElementById('ot-label').value='';document.getElementById('ot-start').value='';document.getElementById('ot-end').value='';document.getElementById('ot-clr').value='#8264F6';document.getElementById('ot-modal').classList.add('open')}
+async function saveOT(){const label=document.getElementById('ot-label').value.trim(),start=document.getElementById('ot-start').value,end=document.getElementById('ot-end').value||start,acc=document.getElementById('ot-clr').value;if(!label||!start)return;oneTimeBlocks.push({id:Date.now(),label,start_date:start,end_date:end,acc});closeModal('ot-modal');setSyncDot('busy');await saveOTBlocks();setSyncDot('ok');renderCal();render()}
+async function delOT(id){oneTimeBlocks=oneTimeBlocks.filter(x=>x.id!==id);setSyncDot('busy');await saveOTBlocks();setSyncDot('ok');renderCal();render()}
+
+// ─── Mobile ──────────────────────────────────────────────────
+function renderPhone(){
+  const wrap=document.getElementById('ph-tl-wrap');
+  const old=wrap.querySelector('.ph-scroll');if(old)old.remove();
+  document.getElementById('ph-hcol').innerHTML='';document.getElementById('ph-blks').innerHTML='';
+  document.getElementById('ph-hcol').style.display='';document.getElementById('ph-blks').style.display='';
+  if(phTabName!=='today'){
+    document.getElementById('ph-hcol').style.display='none';document.getElementById('ph-blks').style.display='none';
+    const panel=document.createElement('div');panel.className='ph-scroll';wrap.appendChild(panel);
+    if(phTabName==='work')renderPhTasks(panel,'work');
+    else if(phTabName==='personal')renderPhTasks(panel,'personal');
+    else if(phTabName==='calendar')renderPhCal(panel);
+    else if(phTabName==='settings')renderPhSettings(panel);
+    return;
+  }
+  const ov=getOverride(vd);
+  if(ov){
+    document.getElementById('ph-hcol').style.display='none';document.getElementById('ph-blks').style.display='none';
+    const panel=document.createElement('div');panel.className='ph-scroll';wrap.appendChild(panel);
+    panel.innerHTML=`<div class="vac-banner" style="background:${bBg(ov.acc||'#8264F6')};border-left-color:${ov.acc||'#8264F6'}"><div class="vbig"><i class="ti ti-beach" style="color:${ov.acc||'#8264F6'}"></i></div><div class="vt" style="color:${ov.acc||'#8264F6'}">${ov.label}</div></div>`;
+    return;
+  }
+  const nm=dkey(vd)===dkey(new Date())?new Date().getHours()*60+new Date().getMinutes():-1;
+  const blks=blksToday();
+  if(!blks.length)return;
+  const DS=toMin(blks[0].time),DE=toMin(blks[blks.length-1].end||blks[blks.length-1].time)+60,TOT=DE-DS;
+  // Percentage-based so full day fits without scrolling
+  let hh='';
+  for(let m=DS;m<=DE;m+=60){
+    const pct=(m-DS)/TOT*100,h=Math.floor(m/60),ap=h>=12?'pm':'am';
+    hh+=`<div style="position:absolute;right:3px;top:${pct}%;font-size:7px;color:rgba(255,255,255,.2);transform:translateY(-50%);white-space:nowrap">${(h%12||12)}${ap}</div>`;
+  }
+  document.getElementById('ph-hcol').innerHTML=hh;
+  const d=getCache();const G=0.3;let bh='';
+  blks.forEach(b=>{
+    const acc=b.acc,bs=toMin(b.time),be=toMin(b.end)||bs+60;
+    const top=(bs-DS)/TOT*100+G,ht=(be-bs)/TOT*100-G*2;
+    const tr=`${fmt12(b.time)}${b.end?' – '+fmt12(b.end):''}`;
+    if(b.is_work){
+      const appts=d.appts.filter(a=>toMin(a.start)>=bs&&toMin(a.end)<=be);
+      let inn='';
+      appts.forEach(a=>{
+        const aTop=(toMin(a.start)-bs)/(be-bs)*100;
+        const aH=(toMin(a.end)-toMin(a.start))/(be-bs)*100;
+        inn+=`<div style="position:absolute;top:${aTop}%;left:2px;right:2px;height:${aH}%;background:${APPT_BG};border-radius:3px;padding:1px 3px;overflow:hidden;z-index:2;border-left:2px solid ${APPT_ACC}"><div style="font-size:6px;font-weight:600;color:${APPT_TXT};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.title}</div></div>`;
+      });
+      bh+=`<div style="position:absolute;top:${top}%;left:0;right:0;height:${ht}%;border-radius:7px;overflow:hidden;border-left:2.5px solid ${acc}"><div style="position:relative;width:100%;height:100%;background:${bBg(acc)}"><div style="padding:2px 5px"><div style="font-size:7px;color:${bTxt(acc)};opacity:.6;overflow:hidden;white-space:nowrap">${tr}</div><div style="font-size:8px;font-weight:500;color:${bTxt(acc)};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.label}</div></div>${inn}</div></div>`;
+    } else {
+      bh+=`<div style="position:absolute;top:${top}%;left:0;right:0;height:${ht}%;background:${bBg(acc)};border-radius:7px;overflow:hidden;padding:2px 5px;border-left:2.5px solid ${acc}"><div style="font-size:7px;color:${bTxt(acc)};opacity:.6;white-space:nowrap;overflow:hidden">${tr}</div><div style="font-size:8px;font-weight:500;color:${bTxt(acc)};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.label}</div></div>`;
+    }
+  });
+  // Standalone appointments (outside any work block)
+  const allWorkBs=blks.filter(b=>b.is_work);
+  d.appts.forEach(a=>{
+    const inWork=allWorkBs.some(b=>toMin(a.start)>=toMin(b.time)&&toMin(a.end)<=(toMin(b.end||b.time)+60));
+    if(!inWork&&toMin(a.start)>=DS&&toMin(a.end)<=DE){
+      const aTop=(toMin(a.start)-DS)/TOT*100+G,aH=(toMin(a.end)-toMin(a.start))/TOT*100-G*2;
+      bh+=`<div style="position:absolute;top:${aTop}%;left:0;right:0;height:${aH}%;background:${APPT_BG};border-radius:7px;overflow:hidden;padding:2px 5px;border-left:2.5px solid ${APPT_ACC}"><div style="font-size:7px;color:${APPT_TXT};opacity:.7;white-space:nowrap;overflow:hidden">${fmt12(a.start)} – ${fmt12(a.end)}</div><div style="font-size:8px;font-weight:500;color:${APPT_TXT};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.title}</div></div>`;
+    }
+  });
+  // Now-line
+  if(nm>=DS&&nm<=DE){
+    const pct=(nm-DS)/TOT*100;
+    bh+=`<div style="position:absolute;top:${pct}%;left:0;right:0;z-index:30;pointer-events:none;display:flex;align-items:center"><span style="font-size:7px;font-weight:700;color:var(--red);white-space:nowrap;background:var(--bg);padding:0 1px">${toFmt(nm)}</span><div style="width:5px;height:5px;border-radius:50%;background:var(--red);flex-shrink:0"></div><div style="flex:1;height:1.5px;background:var(--red)"></div></div>`;
+  }
+  document.getElementById('ph-blks').innerHTML=bh;
+}
+
+function renderPhTasks(panel,type){
+  const list=type==='work'?workTasks:personalTasks;
+  panel.innerHTML=`<div style="display:flex;gap:5px;margin-bottom:10px">
+    <input id="ph-${type}-inp" type="text" placeholder="Add ${type} task…" style="flex:1;padding:8px 11px;border:.5px solid var(--border2);border-radius:var(--radius);font-size:13px;background:rgba(255,255,255,.04);color:var(--text)" onkeydown="if(event.key==='Enter')addTask('${type}')">
+    <button style="padding:8px 12px;border:none;border-radius:var(--radius);background:var(--green-dim);color:var(--green);font-size:12px;font-weight:600;cursor:pointer" onclick="addTask('${type}')">Add</button>
+  </div>
+  ${list.length?list.map(t=>`
+    <div style="border-radius:var(--radius);margin-bottom:5px;overflow:hidden;background:var(--surface2);border:.5px solid var(--border);display:flex;${phDragOver===t.id?'border-color:var(--green);border-style:dashed':''}" draggable="true"
+      ondragstart="phDStart(event,'${type}',${t.id})"
+      ondragover="phDOver(event,${t.id})"
+      ondrop="phDDrop(event,'${type}',${t.id})"
+      ondragend="phDEnd(event,'${type}')">
+      <div style="width:3px;background:${t.color||'rgba(255,255,255,.12)'};flex-shrink:0"></div>
+      <div style="flex:1;padding:8px 10px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <i class="ti ti-grip-vertical" style="font-size:14px;color:var(--text3);cursor:grab;flex-shrink:0"></i>
+          <input type="checkbox" style="width:15px;height:15px;accent-color:var(--green);flex-shrink:0" ${t.done?'checked':''} onchange="toggleTask(${t.id},'${type}')">
+          <span style="flex:1;font-size:13px;color:var(--text);${t.done?'text-decoration:line-through;opacity:.35':''}">${t.text}</span>
+          <button style="border:none;background:none;cursor:pointer;color:var(--text3);font-size:13px;padding:2px" onclick="delTask(${t.id},'${type}')"><i class="ti ti-trash"></i></button>
+        </div>
+        ${t.notes?`<div style="font-size:11px;color:var(--text3);margin-top:4px;font-style:italic"><i class="ti ti-notes" style="font-size:11px"></i> ${t.notes}</div>`:''}
+      </div>
+    </div>`).join(''):'<div class="empty">No tasks yet</div>'}`;
+}
+
+let phDragSrcId=null,phDragOver=null;
+function phDStart(e,type,id){phDragSrcId=id;e.dataTransfer.effectAllowed='move';}
+function phDOver(e,id){e.preventDefault();if(phDragOver!==id){phDragOver=id;const p=e.currentTarget.closest('.ph-scroll');if(p){renderPhTasks(p,p.dataset.type||'work')}}}
+function phDEnd(e,type){
+  phDragOver=null;
+  const p=e.currentTarget.closest('.ph-scroll');
+  if(p)renderPhTasks(p,type);
+  phDragSrcId=null;
+}
+function phDDrop(e,type,tid){
+  e.preventDefault();
+  if(phDragSrcId===null||phDragSrcId===tid)return;
+  const list=type==='work'?workTasks:personalTasks;
+  const a=list.findIndex(x=>x.id===phDragSrcId),b=list.findIndex(x=>x.id===tid);
+  if(a<0||b<0)return;
+  const[item]=list.splice(a,1);list.splice(b,0,item);
+  phDragSrcId=null;phDragOver=null;
+  const p=e.currentTarget.closest('.ph-scroll');
+  if(p)renderPhTasks(p,type);
+}
+
+function renderPhCal(panel){
+  const today=new Date();today.setHours(0,0,0,0);let html='';
+  for(let mo=-2;mo<=8;mo++){
+    const y=today.getFullYear(),month=today.getMonth()+mo;
+    const first=new Date(y,month,1),last=new Date(y,month+1,0);
+    html+=`<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:500;padding:4px 0 7px;position:sticky;top:0;background:var(--bg)">${MF[first.getMonth()]} ${first.getFullYear()}</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${['S','M','T','W','T','F','S'].map(d2=>`<div style="text-align:center;font-size:9px;color:var(--text3);padding:2px 0">${d2}</div>`).join('')}`;
+    for(let i=0;i<first.getDay();i++)html+=`<div style="min-height:34px"></div>`;
+    for(let d2=1;d2<=last.getDate();d2++){
+      const dd=new Date(first.getFullYear(),first.getMonth(),d2),k=dkey(dd),isT=dd.getTime()===today.getTime(),isSel=dd.getTime()===vd.getTime();
+      const ov=oneTimeBlocks.find(b=>k>=b.start_date&&k<=b.end_date);
+      const bg=isT?'rgba(74,222,128,.18)':isSel?'rgba(74,222,128,.1)':ov?bBg(ov.acc||'#8264F6'):'rgba(255,255,255,.02)';
+      const col=isT||isSel?'var(--green)':'rgba(232,234,240,.5)';
+      const brd=isT||isSel?'1.5px solid rgba(74,222,128,.45)':'.5px solid var(--border)';
+      const appts=cache[k]?.appts||[];
+      const dots=appts.slice(0,3).map(()=>`<div style="width:4px;height:4px;border-radius:50%;background:${APPT_ACC};flex-shrink:0"></div>`).join('');
+      const otDot=ov?`<div style="width:4px;height:4px;border-radius:50%;background:${ov.acc||'#8264F6'};flex-shrink:0"></div>`:'';
+      html+=`<div style="min-height:34px;border:${brd};border-radius:5px;padding:3px;background:${bg};cursor:pointer" onclick="phCalClick('${k}')"><div style="font-size:10px;font-weight:500;color:${col}">${d2}</div><div style="display:flex;gap:2px;flex-wrap:wrap;margin-top:2px">${dots}${otDot}</div></div>`;
+    }
+    html+=`</div></div>`;
+  }
+  panel.innerHTML=html;setTimeout(()=>{const t=panel.querySelector('[style*="rgba(74,222,128,.18)"]');if(t)t.scrollIntoView({block:'center'})},80);
+}
+function phCalClick(k){const p=k.split('-').map(Number);vd=new Date(p[0],p[1]-1,p[2]);loadDay(vd).then(()=>{phTab('today',document.querySelector('.bn'))})}
+function renderPhSettings(panel){
+  // init date picker with today if blank
+const todayK=dkey(vd);
+panel.innerHTML=`<div class="sect-h">Appointments</div>
+  <div style="margin-bottom:8px">
+    <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;font-weight:500">Date</label>
+    <input type="date" id="ph-sa-date" value="${todayK}" style="width:100%;padding:7px 10px;border:.5px solid var(--border2);border-radius:var(--radius-sm);font-size:12px;background:rgba(255,255,255,.04);color:var(--text)" onchange="renderPhAppts(this.value,this.closest('.ph-scroll'))">
+  </div>
+  <button class="appt-add-btn" style="margin-bottom:8px" onclick="openPhApptForm(document.getElementById('ph-sa-date').value,this.closest('.ph-scroll'))"><i class="ti ti-plus"></i>Add appointment</button>
+  <div id="ph-appts-list"></div>
+  <div class="sect-h" style="margin-top:14px">Schedule blocks</div>${schedBlocks.map(b=>`<div style="display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:var(--radius-sm);border:.5px solid var(--border);margin-bottom:3px;background:rgba(255,255,255,.02)"><div style="width:9px;height:9px;border-radius:50%;background:${b.acc||'#888'};flex-shrink:0"></div><div style="flex:1"><div style="font-size:11px;font-weight:500;color:var(--text)">${b.label}${b.is_work?' <span class="wbadge">work</span>':''}${b.is_personal?' <span class="pbadge">personal</span>':''}</div><div style="font-size:9px;color:var(--text3)">${fmt12(b.time)}${b.end?' – '+fmt12(b.end):''}</div></div><button class="tib" onclick="openEditBlk(${b.id})"><i class="ti ti-edit"></i></button><button class="tib" onclick="delBlock(${b.id})"><i class="ti ti-trash"></i></button></div>`).join('')}<div class="sect-h" style="margin-top:12px">Colors <span style="font-size:9px;color:var(--text3)">select block first</span></div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${SWATCHES.map(c=>`<div style="width:20px;height:20px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${selBlkId&&schedBlocks.find(b=>b.id===selBlkId)?.acc===c?'#fff':'transparent'}" onclick="selBlk(0);applyClr('${c}')"></div>`).join('')}</div>
+  <div class="sect-h" style="margin-top:10px">Task colors</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <span style="font-size:11px;color:var(--text3);width:60px">Work</span>
+    ${SWATCHES.map(c=>{const b2=c===workTaskColor;return '<div data-c="'+c+'" style="width:16px;height:16px;border-radius:50%;background:'+c+';cursor:pointer;border:2px solid '+(b2?'#fff':'transparent')+'" onclick="setWorkTaskColor(this.dataset.c)"></div>';}).join('')}
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    <span style="font-size:11px;color:var(--text3);width:60px">Personal</span>
+    ${SWATCHES.map(c=>{const b2=c===personalTaskColor;return '<div data-c="'+c+'" style="width:16px;height:16px;border-radius:50%;background:'+c+';cursor:pointer;border:2px solid '+(b2?'#fff':'transparent')+'" onclick="setPersonalTaskColor(this.dataset.c)"></div>';}).join('')}
+  </div>
+  <div class="sect-h">Times</div>${schedBlocks.map(b=>`<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:.5px solid var(--border);font-size:11px"><span style="flex:1;color:var(--text2)">${b.label}</span><input type="time" value="${b.time}" style="background:rgba(255,255,255,.04);border:.5px solid var(--border2);border-radius:5px;padding:3px 6px;font-size:10px;color:var(--text)" onchange="updateTime(${b.id},'time',this.value)"><span style="color:var(--text3);font-size:9px">→</span><input type="time" value="${b.end||''}" style="background:rgba(255,255,255,.04);border:.5px solid var(--border2);border-radius:5px;padding:3px 6px;font-size:10px;color:var(--text)" onchange="updateTime(${b.id},'end',this.value)"></div>`).join('')}`;
+}
+
+// ─── Tabs ────────────────────────────────────────────────────
+function swTab(name,btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.panel,.panel-flex').forEach(p=>{p.classList.remove('on');if(p.classList.contains('panel-flex'))p.style.display='none';else p.style.display='none'});
+  if(btn)btn.classList.add('on');
+  const panel=document.getElementById('tab-'+name);
+  if(!panel)return;
+  if(panel.classList.contains('panel-flex')){panel.classList.add('on');panel.style.display='flex'}
+  else{panel.classList.add('on');panel.style.display='block'}
+  planOrder=null;
+  if(name==='work')renderTasks('work');
+  if(name==='personal')renderTasks('personal');
+  if(name==='plan')renderPlan();
+  if(name==='calendar')renderCal();
+  if(name==='settings'){renderBlkList();renderSwatches();renderTimeRows();initSettingsApptDate();renderSettingsAppts()}
+}
+function phTab(name,btn){
+  phTabName=name;document.querySelectorAll('.bn').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');renderPhone();
+}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+document.querySelectorAll('.modal-bg').forEach(bg=>{bg.addEventListener('click',e=>{if(e.target===bg)bg.classList.remove('open')})});
+
+function initSettingsApptDate(){
+  const el=document.getElementById('sa-date');
+  if(el&&!el.value)el.value=dkey(vd);
+}
+function openApptFormSettings(){
+  const dateEl=document.getElementById('sa-date');
+  const dateVal=dateEl?dateEl.value:dkey(vd);
+  editApptId=null;
+  const old=document.getElementById('af-inline');if(old)old.remove();
+  const container=document.getElementById('settings-appts-list');
+  const el=document.createElement('div');el.id='af-inline';el.className='appt-form';
+  el.innerHTML=`<h4>New appointment</h4>
+    <input class="af-inp" id="af-title" type="text" placeholder="Appointment title">
+    <div class="af-row"><input class="af-inp" id="af-start" type="time" value="09:00" style="margin-bottom:0;flex:1"><span>to</span><input class="af-inp" id="af-end" type="time" value="10:00" style="margin-bottom:0;flex:1"></div>
+    <input class="af-inp" id="af-notes" type="text" placeholder="Notes (optional)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="font-size:11px;color:rgba(252,211,77,.6)">Color</span>
+      <div style="display:flex;gap:5px;flex-wrap:wrap" id="af-swatches">${['#f59e0b','#4ade80','#60a5fa','#e879f9','#f87171','#2dd4bf','#fb923c','#a78bfa'].map(c=>'<div style="width:16px;height:16px;border-radius:50%;background:'+c+';cursor:pointer;border:2px solid '+(c==="#f59e0b"?'#fff':'transparent')+'" onclick="afPickColor(\''+c+'\',this)"></div>').join('')}</div>
+      <input type="color" id="af-color" value="#f59e0b" style="width:20px;height:20px;border:none;border-radius:50%;padding:0;background:none;cursor:pointer" oninput="afPickColor(this.value,null)">
+    </div>
+    <div style="font-size:11px;color:rgba(252,211,77,.4);margin-bottom:4px"><i class="ti ti-info-circle" style="font-size:11px;vertical-align:-1px"></i> Adding to: <strong style="color:var(--amber-txt)">${dateVal}</strong></div>
+    <div class="af-btns"><button class="af-save" onclick="saveApptFromSettings('${dateVal}')">Add appointment</button><button class="af-cancel" onclick="document.getElementById('af-inline').remove()">Cancel</button></div>`;
+  container.insertBefore(el,container.firstChild);
+  document.getElementById('af-title').focus();
+}
+async function saveApptFromSettings(dateVal){
+  const title=document.getElementById('af-title').value.trim();
+  const start=document.getElementById('af-start').value;
+  const end=document.getElementById('af-end').value;
+  const notes=document.getElementById('af-notes').value.trim();
+  const color=document.getElementById('af-color')?.value||'#f59e0b';
+  if(!title||!start||!end)return;
+  // Parse date
+  const parts=dateVal.split('-').map(Number);
+  const targetDate=new Date(parts[0],parts[1]-1,parts[2]);
+  const k=dateVal;
+  // Ensure cache exists for that date
+  if(!cache[k])cache[k]={work:[],personal:[],appts:[]};
+  const d=cache[k];
+  // Find matching work block for that day of week
+  const dow=targetDate.getDay();
+  const blk=schedBlocks.find(b=>b.is_work&&b.days.includes(dow)&&toMin(start)>=toMin(b.time)&&toMin(end)<=(toMin(b.end||b.time)+60))||null;
+  const block_id=blk?blk.id:null;
+  const color2=document.getElementById('af-color')?.value||'#f59e0b';const a={id:Date.now(),title,start,end,notes,color:color2,block_id};
+  d.appts.push(a);d.appts.sort((x,y)=>x.start.localeCompare(y.start));
+  document.getElementById('af-inline').remove();
+  setSyncDot('busy');await dbSaveAppt(a,k);setSyncDot('ok');
+  // If viewing that date, refresh sidebar and plan
+  if(k===dkey(vd)){renderSidebar();}
+  renderSettingsAppts();
+}
+function renderSettingsAppts(){
+  const dateEl=document.getElementById('sa-date');
+  if(!dateEl)return;
+  const k=dateEl.value||dkey(vd);
+  const d=cache[k];
+  const el=document.getElementById('settings-appts-list');
+  if(!el)return;
+  if(!d||!d.appts||!d.appts.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">No appointments on this date</div>';return}
+  el.innerHTML=d.appts.map(a=>{
+    const ac=a.color||APPT_ACC;
+    return`<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:8px 10px;border-radius:var(--radius-sm);border:.5px solid var(--border);background:var(--surface2);margin-bottom:4px;margin-left:14px;border-left:3px solid ${ac}">
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:500;color:${ac}">${a.title}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${fmt12(a.start)} – ${fmt12(a.end)}</div>
+        ${a.notes?`<div style="font-size:10px;color:var(--text3);font-style:italic;margin-top:1px">${a.notes}</div>`:''}
+      </div>
+      <div style="display:flex;gap:2px;flex-shrink:0">
+        <button class="tib" style="color:${ac};opacity:.8" onclick="openApptEditSettings('${k}',${a.id})" title="Edit"><i class="ti ti-edit"></i></button>
+        <button class="tib" style="color:${ac};opacity:.5" onclick="delApptSettings('${k}',${a.id})" title="Delete"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function openApptEditSettings(k,id){
+  const d=cache[k];if(!d)return;const a=d.appts.find(x=>x.id===id);if(!a)return;
+  editApptId=id;
+  const old=document.getElementById('af-inline');if(old)old.remove();
+  const container=document.getElementById('settings-appts-list');
+  const el=document.createElement('div');el.id='af-inline';el.className='appt-form';
+  el.innerHTML=`<h4>Edit appointment</h4>
+    <input class="af-inp" id="af-title" type="text" value="${a.title}">
+    <div class="af-row"><input class="af-inp" id="af-start" type="time" value="${a.start}" style="margin-bottom:0;flex:1"><span>to</span><input class="af-inp" id="af-end" type="time" value="${a.end}" style="margin-bottom:0;flex:1"></div>
+    <input class="af-inp" id="af-notes" type="text" value="${a.notes||''}" placeholder="Notes (optional)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="font-size:11px;color:rgba(252,211,77,.6)">Color</span>
+      <div style="display:flex;gap:5px;flex-wrap:wrap" id="af-swatches">${['#f59e0b','#4ade80','#60a5fa','#e879f9','#f87171','#2dd4bf','#fb923c','#a78bfa'].map(c=>'<div style="width:16px;height:16px;border-radius:50%;background:'+c+';cursor:pointer;border:2px solid '+((a.color||'#f59e0b')===c?'#fff':'transparent')+'" onclick="afPickColor(\''+c+'\',this)"></div>').join('')}</div>
+      <input type="color" id="af-color" value="${a.color||'#f59e0b'}" style="width:20px;height:20px;border:none;border-radius:50%;padding:0;background:none;cursor:pointer" oninput="afPickColor(this.value,null)">
+    </div>
+    <div class="af-btns"><button class="af-save" onclick="saveApptEditSettings('${k}',${id})">Save changes</button><button class="af-cancel" onclick="document.getElementById('af-inline').remove()">Cancel</button></div>`;
+  container.insertBefore(el,container.firstChild);
+  document.getElementById('af-title').focus();
+}
+async function saveApptEditSettings(k,id){
+  const title=document.getElementById('af-title').value.trim();
+  const start=document.getElementById('af-start').value;
+  const end=document.getElementById('af-end').value;
+  const notes=document.getElementById('af-notes').value.trim();
+  if(!title||!start||!end)return;
+  const d=cache[k];if(!d)return;
+  const a=d.appts.find(x=>x.id===id);
+  if(a){a.title=title;a.start=start;a.end=end;a.notes=notes;}
+  document.getElementById('af-inline').remove();
+  setSyncDot('busy');await dbSaveAppt({id,title,start,end,notes,block_id:a?.block_id||null},k);setSyncDot('ok');
+  if(k===dkey(vd)){renderSidebar();}
+  renderSettingsAppts();
+}
+async function delApptSettings(k,id){
+  const d=cache[k];if(!d)return;
+  d.appts=d.appts.filter(x=>x.id!==id);
+  renderSettingsAppts();
+  if(k===dkey(vd)){renderSidebar();}
+  setSyncDot('busy');await dbDelAppt(id);setSyncDot('ok');
+}
+
+function renderPhAppts(k,panel){
+  const listEl=panel?panel.querySelector('#ph-appts-list'):document.getElementById('ph-appts-list');
+  if(!listEl)return;
+  const d=cache[k];
+  if(!d||!d.appts||!d.appts.length){listEl.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">No appointments on this date</div>';return}
+  listEl.innerHTML=d.appts.map(a=>`<div class="appt-card" style="margin-bottom:4px">
+    <div class="appt-info"><div class="appt-title">${a.title}</div><div class="appt-time">${fmt12(a.start)} – ${fmt12(a.end)}</div>${a.notes?`<div class="appt-note">${a.notes}</div>`:''}</div>
+    <div class="appt-acts"><button class="tib" style="color:rgba(252,211,77,.6)" onclick="openApptEditSettings('${k}',${a.id})" title="Edit"><i class="ti ti-edit"></i></button><button class="tib" style="color:rgba(252,211,77,.4)" onclick="delApptPhSettings('${k}',${a.id},this)" title="Delete"><i class="ti ti-trash"></i></button></div>
+  </div>`).join('');
+}
+async function delApptPhSettings(k,id,btn){
+  const d=cache[k];if(!d)return;d.appts=d.appts.filter(x=>x.id!==id);
+  const panel=btn?btn.closest('.ph-scroll'):null;
+  renderPhAppts(k,panel);
+  if(k===dkey(vd))renderSidebar();
+  setSyncDot('busy');await dbDelAppt(id);setSyncDot('ok');
+}
+function openPhApptForm(dateVal,panel){
+  const old=panel?panel.querySelector('#ph-af-inline'):document.getElementById('ph-af-inline');if(old)old.remove();
+  const listEl=panel?panel.querySelector('#ph-appts-list'):document.getElementById('ph-appts-list');
+  if(!listEl)return;
+  const el=document.createElement('div');el.id='ph-af-inline';el.className='appt-form';
+  el.innerHTML=`<h4>New appointment</h4>
+    <input class="af-inp" id="ph-af-title" type="text" placeholder="Appointment title">
+    <div class="af-row"><input class="af-inp" id="ph-af-start" type="time" value="09:00" style="margin-bottom:0;flex:1"><span>to</span><input class="af-inp" id="ph-af-end" type="time" value="10:00" style="margin-bottom:0;flex:1"></div>
+    <input class="af-inp" id="ph-af-notes" type="text" placeholder="Notes (optional)">
+    <div style="font-size:11px;color:rgba(252,211,77,.4);margin-bottom:4px"><i class="ti ti-info-circle" style="font-size:11px;vertical-align:-1px"></i> Adding to: <strong style="color:var(--amber-txt)">${dateVal}</strong></div>
+    <div class="af-btns"><button class="af-save" onclick="savePhApptForm('${dateVal}',this.closest('.ph-scroll'))">Add appointment</button><button class="af-cancel" onclick="this.closest('#ph-af-inline').remove()">Cancel</button></div>`;
+  listEl.insertBefore(el,listEl.firstChild);
+  document.getElementById('ph-af-title').focus();
+}
+async function savePhApptForm(dateVal,panel){
+  const title=document.getElementById('ph-af-title').value.trim();
+  const start=document.getElementById('ph-af-start').value;
+  const end=document.getElementById('ph-af-end').value;
+  const notes=document.getElementById('ph-af-notes').value.trim();
+  if(!title||!start||!end)return;
+  const parts=dateVal.split('-').map(Number);
+  const targetDate=new Date(parts[0],parts[1]-1,parts[2]);
+  const k=dateVal;
+  if(!cache[k])cache[k]={work:[],personal:[],appts:[]};
+  const d=cache[k];
+  const dow=targetDate.getDay();
+  const blk=schedBlocks.find(b=>b.is_work&&b.days.includes(dow)&&toMin(start)>=toMin(b.time)&&toMin(end)<=(toMin(b.end||b.time)+60))||null;
+  const a={id:Date.now(),title,start,end,notes,block_id:blk?blk.id:null};
+  d.appts.push(a);d.appts.sort((x,y)=>x.start.localeCompare(y.start));
+  const inlineEl=document.getElementById('ph-af-inline');if(inlineEl)inlineEl.remove();
+  setSyncDot('busy');await dbSaveAppt(a,k);setSyncDot('ok');
+  if(k===dkey(vd))renderSidebar();
+  renderPhAppts(k,panel);
+}
+
+function toggleTasksInSchedule(){
+  showTasksInSchedule=!showTasksInSchedule;
+  const btn=document.getElementById('tasks-toggle');
+  if(btn){
+    btn.style.background=showTasksInSchedule?'var(--green-dim)':'none';
+    btn.style.color=showTasksInSchedule?'var(--green)':'var(--text2)';
+    btn.style.borderColor=showTasksInSchedule?'rgba(74,222,128,.4)':'var(--border2)';
+  }
+  renderSidebar();
+}
+
+
+let sbDragTaskId=null;
+function sbTaskDStart(e){sbDragTaskId=parseInt(e.currentTarget.dataset.sbTask);e.dataTransfer.effectAllowed='move';}
+function sbTaskDOver(e,blockId){e.preventDefault();}
+function sbTaskDDrop(e,blockId){
+  e.preventDefault();
+  if(sbDragTaskId===null)return;
+  const ti=e.currentTarget.dataset.sbTask?parseInt(e.currentTarget.dataset.sbTask):null;
+  if(ti===null||ti===sbDragTaskId)return;
+  const a=workTasks.findIndex(x=>x.id===sbDragTaskId);
+  const b=workTasks.findIndex(x=>x.id===ti);
+  if(a<0||b<0)return;
+  const[item]=workTasks.splice(a,1);workTasks.splice(b,0,item);
+  sbDragTaskId=null;renderSidebar();
+}
+function sbTaskDEnd(){sbDragTaskId=null;renderSidebar();}
+
+
+function afPickColor(c,swatch){
+  const ci=document.getElementById('af-color');if(ci)ci.value=c;
+  document.querySelectorAll('#af-swatches div').forEach(el=>{el.style.borderColor=el.style.background===c?'#fff':'transparent'});
+}
+
+start();
+</script>
+</body>
+</html>
